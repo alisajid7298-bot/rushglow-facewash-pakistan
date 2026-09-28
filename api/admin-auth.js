@@ -11,7 +11,7 @@ export default async function handler(req,res){
   if(String(email||'').toLowerCase()!==ADMIN_EMAIL)return res.status(403).json({error:'This Gmail is not authorized'});
   const otp=String(crypto.randomInt(100000,1000000)),exp=Date.now()+10*60*1000,payload=exp+'.'+sign(otp+'.'+exp);
   const rr=await fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:'Rush Glow <onboarding@resend.dev>',to:[ADMIN_EMAIL],subject:'Rush Glow Admin Login Code',html:'<h2>Rush Glow Admin</h2><p>Your verification code is:</p><h1>'+otp+'</h1><p>This code expires in 10 minutes.</p>'})});
-  if(!rr.ok)return res.status(500).json({error:'Email could not be sent'});
+  if(!rr.ok){const detail=await rr.text();console.error('Resend error',rr.status,detail);return res.status(500).json({error:'Email could not be sent',detail:detail.slice(0,300)});}
   res.setHeader('Set-Cookie','rg_otp='+encodeURIComponent(payload)+'; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=600');return res.json({ok:true});
  }
  if(action==='verify'){
