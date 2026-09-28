@@ -26,3 +26,5 @@ export default async function handler(req,res){
 // redeploy for updated RESEND_API_KEY
 
 // refresh deployment after Resend credential update
+
+// redeploy after valid RESEND_API_KEY saved
