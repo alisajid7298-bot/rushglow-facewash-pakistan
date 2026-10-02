@@ -79,7 +79,7 @@ module.exports = async (req, res) => {
         return res.status(502).json({ error: 'Email could not be sent. Please try again' });
       }
       res.setHeader('Set-Cookie', 'rg_otp=' + challenge + '; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=600');
-      return res.json({ ok: true, warning: delivered.length < ADMIN_EMAILS.length ? 'Code sirf ek email par send hua. Dono Gmail par code ke liye email sending domain verify karna zaroori hai.' : '' });
+      return res.json({ ok: true, warning: delivered.length < ADMIN_EMAILS.length ? 'The code was sent to only one admin email address. Verify the email sending domain to enable delivery to both addresses.' : '' });
     }
     const challenge = cookie(req, 'rg_otp');
     if (!/^[a-f0-9]{64}$/.test(challenge))
