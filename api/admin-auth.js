@@ -27,6 +27,10 @@ module.exports = async (req, res) => {
     const exp = parts[0], sig = parts[1];
     const ok = parts.length === 2 && /^\d+$/.test(exp || '') &&
       Number(exp) > Date.now() && equal(sig, sign(exp));
+    if (ok) {
+      const renewed = String(Date.now() + 15 * 60 * 1000);
+      res.setHeader('Set-Cookie', 'rg_admin=' + renewed + '.' + sign(renewed) + '; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=900');
+    } else res.setHeader('Set-Cookie', clearCookie('rg_admin'));
     return res.status(ok ? 200 : 401).json({ ok });
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -91,9 +95,9 @@ module.exports = async (req, res) => {
       return res.status(401).json({ error: 'Invalid or expired code. After 5 attempts, request a new code' });
     const consumed = await pool.query('DELETE FROM admin_login_challenges WHERE email=$1 AND challenge=$2 RETURNING challenge', [ADMIN_EMAIL, challenge]);
     if (!consumed.rows.length) return res.status(401).json({ error: 'This code has already been used' });
-    const exp = String(Date.now() + 12 * 60 * 60 * 1000);
+    const exp = String(Date.now() + 15 * 60 * 1000);
     res.setHeader('Set-Cookie', [
-      'rg_admin=' + exp + '.' + sign(exp) + '; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=43200',
+      'rg_admin=' + exp + '.' + sign(exp) + '; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=900',
       clearCookie('rg_otp')
     ]);
     return res.json({ ok: true });
