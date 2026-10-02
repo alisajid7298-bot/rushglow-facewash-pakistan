@@ -1,6 +1,39 @@
 const {Pool}=require('@neondatabase/serverless');const crypto=require('crypto');function admin(req){const raw=(req.headers.cookie||'').match(/(?:^|; )rg_admin=([^;]*)/);if(!raw)return false;try{const t=decodeURIComponent(raw[1]),[exp,sig]=t.split('.'),key=process.env.ADMIN_AUTH_SECRET||process.env.RESEND_API_KEY||'';if(!key||!exp||Date.now()>Number(exp))return false;const good=crypto.createHmac('sha256',key).update(exp).digest('hex');return sig===good}catch(e){return false}}
+
+const ORDER_EMAILS=['ali.sajid7298@gmail.com','rushglow35@gmail.com'];
+async function notifyOrder(order){
+  if(!process.env.RESEND_API_KEY){console.error('Order notification unavailable: email service missing');return}
+  const text=[
+    'A new RUSHGLOW order has been placed.',
+    'Order number: #'+order.id,
+    'Products: '+(order.product_name||''),
+    'Total: Rs. '+(order.price||''),
+    'Customer: '+(order.customer_name||''),
+    'Phone: '+(order.phone||''),
+    'Alternate phone: '+(order.alternate_phone||'Not provided'),
+    'Address: '+(order.address||''),
+    'City / District: '+(order.city||''),
+    'Payment method: '+(order.payment_method||''),
+    'Transaction ID: '+(order.transaction_id||'Not provided'),
+    'Status: '+(order.status||'Pending'),
+    'Payment screenshot: '+(order.payment_screenshot?'Available in the control panel':'Not provided'),
+    '',
+    'View and manage this order: https://rushglow.org/admin.html'
+  ].join('\n');
+  await Promise.all(ORDER_EMAILS.map(async recipient=>{
+    try{
+      const response=await fetch('https://api.resend.com/emails',{
+        method:'POST',signal:AbortSignal.timeout(8000),
+        headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'rushglow-order-'+order.id+'-'+recipient},
+        body:JSON.stringify({from:process.env.ADMIN_EMAIL_FROM||'RushGlow <verification@rushglow.org>',to:[recipient],subject:'New RUSHGLOW Order #'+order.id,text})
+      });
+      if(!response.ok)console.error('Order notification failed',String(order.id),recipient,response.status);
+    }catch(error){console.error('Order notification failed',String(order.id),recipient,error.name)}
+  }));
+}
+
 module.exports=async(req,res)=>{let pool;try{const cs=process.env.POSTGRES_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL_NON_POOLING;if(!cs)return res.status(500).json({error:'Database missing'});pool=new Pool({connectionString:cs});await pool.query("CREATE TABLE IF NOT EXISTS orders (id BIGSERIAL PRIMARY KEY,product_id BIGINT,product_name TEXT,price TEXT,customer_name TEXT,phone TEXT,address TEXT,alternate_phone TEXT,city TEXT,notes TEXT,payment_method TEXT,transaction_id TEXT,payment_screenshot TEXT,discount_code TEXT,delivery TEXT,items TEXT,status TEXT DEFAULT 'Pending',courier TEXT,tracking_id TEXT,created_at TIMESTAMPTZ DEFAULT NOW())");await pool.query("ALTER TABLE orders ADD COLUMN IF NOT EXISTS courier TEXT, ADD COLUMN IF NOT EXISTS tracking_id TEXT");
-if(req.method==='POST'){const b=req.body||{};if(!b.customer_name||!b.phone||!b.address||!b.city)return res.status(400).json({error:'Missing details'});const client=await pool.connect();try{await client.query('BEGIN');let items=Array.isArray(b.items)?b.items:[];if(items.length){for(const it of items){const q=await client.query('UPDATE products SET stock=stock-$1 WHERE id=$2 AND stock >= $1 RETURNING stock',[Math.max(1,Number(it.qty||1)),it.id]);if(!q.rows[0])throw new Error('OUT_OF_STOCK:'+String(it.name||'Product'))}}else if(b.product_id){const q=await client.query('UPDATE products SET stock=stock-1 WHERE id=$1 AND stock >= 1 RETURNING stock',[b.product_id]);if(!q.rows[0])throw new Error('OUT_OF_STOCK:'+String(b.product_name||'Product'))}const q=await client.query('INSERT INTO orders(product_id,product_name,price,customer_name,phone,address,alternate_phone,city,notes,payment_method,transaction_id,payment_screenshot,discount_code,delivery,items) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *',[b.product_id||null,b.product_name||'',b.price||'',b.customer_name,b.phone,b.address,b.alternate_phone||'',b.city||'',b.notes||'',b.payment_method||'',b.transaction_id||'',b.payment_screenshot||'',b.discount_code||'',b.delivery||'0',JSON.stringify(items)]);await client.query('COMMIT');return res.status(201).json(q.rows[0])}catch(e){await client.query('ROLLBACK');if(String(e.message).startsWith('OUT_OF_STOCK:'))return res.status(409).json({error:String(e.message).split(':').slice(1).join(':')+' is out of stock.'});throw e}finally{client.release()}}
+if(req.method==='POST'){const b=req.body||{};if(!b.customer_name||!b.phone||!b.address||!b.city)return res.status(400).json({error:'Missing details'});const client=await pool.connect();try{await client.query('BEGIN');let items=Array.isArray(b.items)?b.items:[];if(items.length){for(const it of items){const q=await client.query('UPDATE products SET stock=stock-$1 WHERE id=$2 AND stock >= $1 RETURNING stock',[Math.max(1,Number(it.qty||1)),it.id]);if(!q.rows[0])throw new Error('OUT_OF_STOCK:'+String(it.name||'Product'))}}else if(b.product_id){const q=await client.query('UPDATE products SET stock=stock-1 WHERE id=$1 AND stock >= 1 RETURNING stock',[b.product_id]);if(!q.rows[0])throw new Error('OUT_OF_STOCK:'+String(b.product_name||'Product'))}const q=await client.query('INSERT INTO orders(product_id,product_name,price,customer_name,phone,address,alternate_phone,city,notes,payment_method,transaction_id,payment_screenshot,discount_code,delivery,items) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *',[b.product_id||null,b.product_name||'',b.price||'',b.customer_name,b.phone,b.address,b.alternate_phone||'',b.city||'',b.notes||'',b.payment_method||'',b.transaction_id||'',b.payment_screenshot||'',b.discount_code||'',b.delivery||'0',JSON.stringify(items)]);await client.query('COMMIT');await notifyOrder(q.rows[0]);return res.status(201).json(q.rows[0])}catch(e){await client.query('ROLLBACK');if(String(e.message).startsWith('OUT_OF_STOCK:'))return res.status(409).json({error:String(e.message).split(':').slice(1).join(':')+' is out of stock.'});throw e}finally{client.release()}}
 if(req.method==='GET'&&req.query&&req.query.id){const q=await pool.query('SELECT id,product_name,status,city,courier,tracking_id,created_at FROM orders WHERE id=$1',[req.query.id]);if(!q.rows[0])return res.status(404).json({error:'Order not found'});return res.status(200).json(q.rows[0])}
 if(!admin(req))return res.status(401).json({error:'Admin login required'});
 if(req.method==='DELETE'){const id=String((req.body||{}).id||'');if(!/^[1-9][0-9]*$/.test(id))return res.status(400).json({error:'Invalid order number'});const q=await pool.query('DELETE FROM orders WHERE id=$1 RETURNING id',[id]);if(!q.rows[0])return res.status(404).json({error:'Order not found'});return res.status(200).json({ok:true,id:q.rows[0].id})}
