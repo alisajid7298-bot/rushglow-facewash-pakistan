@@ -41,14 +41,14 @@ const b=req.body||{},id=String(b.id||'');
 if(!/^[1-9][0-9]*$/.test(id))return res.status(400).json({error:'Invalid order number'});
 const secret=process.env.ADMIN_AUTH_SECRET||process.env.RESEND_API_KEY;
 const hash=value=>crypto.createHmac('sha256',secret).update(value).digest('hex');
-const session=hash(String(req.headers.cookie||'').match(/(?:^|; )rg_admin=([^;]*)/)[1]);
+const session=hash(String(b.challenge||''));
 await pool.query("CREATE TABLE IF NOT EXISTS order_delete_challenges (order_id BIGINT PRIMARY KEY, challenge TEXT NOT NULL, session_hash TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at TIMESTAMPTZ NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
 if(b.action==='send'){
 if(!process.env.RESEND_API_KEY)return res.status(503).json({error:'Email service is unavailable'});
 const exists=await pool.query('SELECT id FROM orders WHERE id=$1',[id]);
 if(!exists.rows.length)return res.status(404).json({error:'Order not found'});
 const code=String(crypto.randomInt(100000,1000000)),challenge=crypto.randomBytes(32).toString('hex');
-const reserved=await pool.query("INSERT INTO order_delete_challenges(order_id,challenge,session_hash,code_hash,expires_at,attempts,sent_at) VALUES($1,$2,$3,$4,NOW()+INTERVAL '10 minutes',0,NOW()) ON CONFLICT(order_id) DO UPDATE SET challenge=$2,session_hash=$3,code_hash=$4,expires_at=NOW()+INTERVAL '10 minutes',attempts=0,sent_at=NOW() WHERE order_delete_challenges.sent_at<=NOW()-INTERVAL '60 seconds' RETURNING challenge",[id,challenge,session,hash(code+'.'+challenge)]);
+const reserved=await pool.query("INSERT INTO order_delete_challenges(order_id,challenge,session_hash,code_hash,expires_at,attempts,sent_at) VALUES($1,$2,$3,$4,NOW()+INTERVAL '10 minutes',0,NOW()) ON CONFLICT(order_id) DO UPDATE SET challenge=$2,session_hash=$3,code_hash=$4,expires_at=NOW()+INTERVAL '10 minutes',attempts=0,sent_at=NOW() WHERE order_delete_challenges.sent_at<=NOW()-INTERVAL '60 seconds' RETURNING challenge",[id,challenge,hash(challenge),hash(code+'.'+challenge)]);
 if(!reserved.rows.length)return res.status(429).json({error:'Wait one minute before requesting another deletion code'});
 const sent=await Promise.all(ORDER_EMAILS.map(async recipient=>{try{const response=await fetch('https://api.resend.com/emails',{method:'POST',signal:AbortSignal.timeout(8000),headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json'},body:JSON.stringify({from:process.env.ADMIN_EMAIL_FROM||'RushGlow <verification@rushglow.org>',to:[recipient],subject:'Confirm deletion of RUSHGLOW Order #'+id,text:'A request was made to permanently delete Order #'+id+'.\nVerification code: '+code+'\nThis code expires in 10 minutes and can be used once. Only share it if you approve deleting this order. If you did not request this, do not share the code.'})});return response.ok}catch{return false}}));
 if(!sent.every(Boolean)){await pool.query('DELETE FROM order_delete_challenges WHERE order_id=$1 AND challenge=$2',[id,challenge]);return res.status(502).json({error:'The deletion code could not be sent to both emails. Your order has not been deleted. Please try again.'})}
