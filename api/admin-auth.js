@@ -64,7 +64,7 @@ module.exports = async (req, res) => {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + process.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: process.env.ADMIN_EMAIL_FROM || 'Rush Glow <onboarding@resend.dev>', to: [recipient],
+          from: process.env.ADMIN_EMAIL_FROM || 'RushGlow <verification@rushglow.org>', to: [recipient],
           subject: 'RUSHGLOW control panel access request',
           html: '<h2>RUSHGLOW Control Panel</h2><p>A control panel login was requested. Share this code only with the person you want to allow to manage products and orders.</p><h1>' + otp + '</h1><p>Expires in 10 minutes. This code does not grant GitHub, Vercel or domain access.</p>'
         })
