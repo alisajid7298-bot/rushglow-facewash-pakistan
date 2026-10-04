@@ -10,9 +10,15 @@
   "theme_color": "#075f55",
   "icons": [
     {
-      "src": "/admin-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "/api/admin-app-icon?size=192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/admin-app-icon?size=512",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     }
   ]
