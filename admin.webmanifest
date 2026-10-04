@@ -1,0 +1,19 @@
+{
+  "id": "/admin-app",
+  "name": "RushGlow Admin",
+  "short_name": "RushGlow Admin",
+  "description": "RushGlow owner control panel for products, orders and visitor analytics",
+  "start_url": "/admin.html?source=admin-app",
+  "scope": "/admin.html",
+  "display": "standalone",
+  "background_color": "#f3f8f6",
+  "theme_color": "#075f55",
+  "icons": [
+    {
+      "src": "/admin-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
