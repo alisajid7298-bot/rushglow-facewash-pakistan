@@ -7,16 +7,20 @@ document.body.insertAdjacentHTML('beforeend',"<style>\n#rgChatLaunch{position:fi
 const website='https://rushglow.org';
 const support='https://wa.me/923427278255';
 function reply(message, products=[]) {
- const q=String(message||'').trim().toLowerCase().slice(0,2000);
- const buttons=['Products & prices','Delivery charges','Payment methods','Track my order','Talk to our team'];
+ const original=String(message||'').trim().toLowerCase().slice(0,2000);
+ const words=[[/فیس\s*واش|face\s+wash|feswash/g,'facewash'],[/سیرم/g,'serum'],[/پالش|پولش/g,'polish'],[/قیمت|ریٹ|keemat|qimat|qemat|rate/g,'price'],[/ڈیلیوری|ترسیل|delivary|delivery fee|shipping/g,'delivery'],[/کتنے دن|کب آئے|kitne din|kab aye|kab mile/g,'delivery time'],[/ادائیگی|پیمنٹ|paymint/g,'payment'],[/ایزی\s*پیسہ/g,'easypaisa'],[/کیش|نقد/g,'cash'],[/آرڈر/g,'order'],[/ٹریک|کہاں پہنچا|kahan pohncha|kaha pohncha/g,'track'],[/واپسی|ریفنڈ|wapis|wapas/g,'return'],[/شکایت|خراب|masla|kharab/g,'problem'],[/استعمال|طریقہ|فائدے|benefits|istemal|istamal|faide|fayde/g,'usage'],[/اجزاء/g,'ingredients'],[/رابطہ|مالک|انسان|contact|owner|insan/g,'support'],[/ڈسکاؤنٹ|کوپن/g,'discount'],[/ریویو|ستارے/g,'review'],[/خرید|khareed|kharid/g,'buy']];
+ const q=words.reduce((s,[rx,value])=>s.replace(rx,value),original);
+ const buttons=['Products & prices','How to use products','Delivery charges','Payment methods','How to order','Track my order','Discounts & coupons','Returns & support'];
  const result=text=>({text,website,support,buttons});
- if(!q||/^(hi|hello|hey|salam|salaam|assalam.*|start|menu)$/.test(q))
+ if(!q||/^(hi|hello|hey|salam|salaam|assalam.*|start|menu|السلام علیکم|سلام)$/.test(q))
  return result('Welcome to RushGlow! I can help with products, prices, delivery, payment and order tracking. What would you like to know?');
+ if(/cure|treat|allergy|rash|pregnan|medical|guarantee|side effect|جلن|الرجی|حاملہ|ilaj|jalan/.test(q))
+ return result('I cannot confirm medical suitability or guarantee skin results. For irritation, allergies or a medical skin condition, consult a qualified healthcare professional. Our team can help with product information: '+support+'.');
  if(/refund|return|damag|missing|complaint|cancel|human|agent|team|support|problem|error|masla|kharab/.test(q))
  return result('Our team can help with payment problems, missing or damaged items, cancellations and return requests. Please send your order number and a description to '+support+'. Please do not send passwords, verification codes or card details. A return or refund must be confirmed by our team.');
  if(/track|status|where.*order|order.*where|order number/.test(q))
  return result('To check your order, open '+website+'/#track and enter the order number shown after checkout. If you cannot find it, contact our team: '+support+'.');
- if(/deliver|shipping|courier|swabi|charges|kitne din|kab aye/.test(q))
+ if(/deliver|shipping|courier|swabi|charges|kitne din|kab aye/.test(q)&&!/cash|\bcod\b|easypaisa/.test(q))
  return result('Delivery is free within Swabi District. Outside Swabi District it costs Rs. 200. Enter your city or district at checkout to see the final total. Delivery time depends on your location and courier; contact '+support+' for an estimate.');
  if(/payment|\bpay\b|cash|\bcod\b|easypaisa|easy paisa|card|bank/.test(q))
  return result('You can pay by Cash on Delivery or EasyPaisa. For COD, pay when your order arrives. For EasyPaisa, use the instructions and account shown at checkout and upload your payment screenshot. Card payments are not listed as an available checkout method.');
@@ -24,12 +28,17 @@ function reply(message, products=[]) {
  return result('Customers whose order is marked Delivery Complete can review products they purchased. Select Write a Review and enter your order number and the phone number used for that order. Approved reviews appear on the product page.');
  if(/discount|coupon|offer/.test(q))
  return result('Current sale prices appear on product cards. If you have a discount code, enter it at checkout and tap Apply. I cannot promise a discount that has not been confirmed at checkout.');
- if(/buy|place.*order|order.*place|checkout|khareed|kharid|order kar/.test(q))
+ if(/buy|place.*order|order.*place|checkout|how to order|order kar|order kese|order kaise|order.*کیسے|order.*کرنا/.test(q))
  return result('Open '+website+', tap Buy Now or add products to your cart and select Checkout. Enter your name, phone, complete address and city, choose a payment method, then tap Place Order. Save your order number. If checkout fails, contact our team before ordering again.');
- if(/cure|treat|allergy|rash|pregnan|medical|guarantee|side effect/.test(q))
- return result('I cannot confirm medical suitability or guarantee skin results. For irritation, allergies or a medical skin condition, consult a qualified healthcare professional. Our team can help with product information: '+support+'.');
+
  const catalog=Array.isArray(products)?products.filter(p=>p&&p.id&&p.name):[];
- const named=catalog.filter(p=>String(p.name).toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>3).some(w=>q.includes(w)));
+ const named=catalog.filter(p=>String(p.name).toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>3&&!['rushglow','rush','glow'].includes(w)).some(w=>q.includes(w)));
+ if(/thank|shukriya|شکریہ/.test(q))return result('You are welcome! Let me know if you need help with another RushGlow question.');
+ if(/usage|how.*use|use.*product|ingredients|lagana|lagao|kaise.*use|kese.*use|description/.test(q)){
+ if(!named.length)return result('Which product would you like to know about: FaceWash, Skin Polish or Whitening Serum? Include its name in your question, for example: How to use FaceWash.');
+ return result(named.map(p=>p.name+'\n'+(p.description?String(p.description).slice(0,1600):'Detailed instructions are not currently listed for this product. Please follow the packaging instructions or ask our team.')+'\n'+website+'/?product='+encodeURIComponent(String(p.id))+'#productsSection').join('\n\n')+'\n\nThese are the product details listed by RushGlow. If usage instructions or ingredients are missing, contact our team: '+support+'.');
+ }
+ if(/install|app|home screen|موبائل ایپ/.test(q))return result('To add RushGlow to your home screen, tap Install RushGlow App on the website. On Android Chrome, use the browser menu to install or add to home screen. On iPhone, open Safari and use Share → Add to Home Screen.');
  if(/product|price|catalog|facewash|face wash|serum|polish|cost|qeemat|kitne|stock/.test(q)||named.length){
   const selected=named.length?named:catalog;
   if(!selected.length) return result('Please see our current products and prices at '+website+'/#productsSection. I cannot confirm a price or availability while the catalog is unavailable.');
@@ -57,10 +66,7 @@ function append(text,user=false){
 function ask(text){
  append(text,true);
  let catalog=[];try{catalog=products}catch{}
- const normalized=String(text).toLowerCase();
- const aliases=[[/qeemat|keemat|kitne ka|kitna price/,'products'],[/delivery|delivary|shipping/,'delivery'],[/payment|easypaisa|cash on delivery|\bcod\b/,'payment'],[/order kese|order kaise|order karna/,'place order'],[/insan|owner|contact/,'support']];
- const match=aliases.find(([rx])=>rx.test(normalized));
- append(reply(match?match[1]:text,catalog).text);
+ append(reply(text,catalog).text);
 }
 function close(){panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()}
 launch.onclick=()=>{if(!panel.hidden){close();return}panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)append(reply('hello').text);input.focus()};
