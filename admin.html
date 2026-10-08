@@ -77,10 +77,24 @@ function salesRows(rows,period,now=new Date()){
 }
 function orderAmount(o){return Number(String(o.price||0).replace(/[^0-9.]/g,''))||0}
 function renderSalesReport(){
+ const sourceReportOpen=document.getElementById('orderSourceReport')?.open===true;
  const box=document.getElementById('salesReport'),period=document.getElementById('salesPeriod').value,rows=salesRows(allOrders,period);
  const completed=rows.filter(o=>o.status==='Delivery Complete');
+
+ const sourceLabels=['Facebook','Google','TikTok','Instagram','WhatsApp','YouTube','Other','Direct/Unknown'];
+ const sourceGroups=new Map();
+ for(const order of rows){
+ const source=!order.traffic_source?'Not recorded (older orders)':sourceLabels.includes(order.traffic_source)?order.traffic_source:'Direct/Unknown';
+ if(!sourceGroups.has(source))sourceGroups.set(source,{orders:0,completed:0,sales:0});
+ const group=sourceGroups.get(source);group.orders++;
+ if(order.status==='Delivery Complete'){group.completed++;group.sales+=orderAmount(order)}
+ }
+ const sourceReport='<details id="orderSourceReport"'+(sourceReportOpen?' open':'')+' style="margin-top:16px;border:1px solid #d9e8df;border-radius:10px;padding:12px"><summary style="cursor:pointer;font-weight:700;color:#08796b;min-height:32px">View orders by source</summary><p><small>Uses the sales report period selected above. Source tracking begins with this update; older orders are shown as Not recorded. Source labels can be hidden by apps or changed in shared links.</small></p>'+
+ (sourceGroups.size?'<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;text-align:left;font-size:13px"><thead><tr><th style="padding:10px 6px">Source</th><th style="padding:10px 6px">Orders</th><th style="padding:10px 6px">Completed</th><th style="padding:10px 6px">Completed sales</th></tr></thead><tbody>'+
+ [...sourceGroups.entries()].sort((a,b)=>b[1].orders-a[1].orders).map(([source,g])=>'<tr><td style="padding:10px 6px;border-top:1px solid #e0ebe7">'+esc(source)+'</td><td style="padding:10px 6px;border-top:1px solid #e0ebe7">'+g.orders+'</td><td style="padding:10px 6px;border-top:1px solid #e0ebe7">'+g.completed+'</td><td style="padding:10px 6px;border-top:1px solid #e0ebe7">Rs. '+g.sales.toLocaleString()+'</td></tr>').join('')+'</tbody></table></div>':'<p>No orders in this period.</p>')+
+ '<p><small>Completed sales include delivery charges and are order values, not profit.</small></p></details>';
  const metrics=[['Orders',rows.length],['Pending',rows.filter(o=>(o.status||'Pending')==='Pending').length],['Completed',completed.length],['Total order value','Rs. '+rows.reduce((n,o)=>n+orderAmount(o),0).toLocaleString()],['Completed sales','Rs. '+completed.reduce((n,o)=>n+orderAmount(o),0).toLocaleString()]];
- box.innerHTML='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0">'+metrics.map(([label,value])=>'<div style="background:#eff8f3;border-radius:10px;padding:14px;overflow-wrap:anywhere"><b style="display:block;color:#08796b;font-size:22px">'+esc(value)+'</b><small>'+label+'</small></div>').join('')+'</div>'+(rows.length?'':'<p>No orders in this period.</p>');
+ box.innerHTML='<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:16px 0">'+metrics.map(([label,value])=>'<div style="background:#eff8f3;border-radius:10px;padding:14px;overflow-wrap:anywhere"><b style="display:block;color:#08796b;font-size:22px">'+esc(value)+'</b><small>'+label+'</small></div>').join('')+'</div>'+(rows.length?'':'<p>No orders in this period.</p>')+sourceReport;
 }
 let orderAlertBusy=false,orderSound=null,orderAlertEnabled=false,lastSeenOrder='';
 try{lastSeenOrder=localStorage.getItem('rushAdminLastOrder')||'';orderAlertEnabled=localStorage.getItem('rushOrderAlerts')==='1'}catch{}
