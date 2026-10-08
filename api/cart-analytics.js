@@ -25,10 +25,11 @@ module.exports=async(req,res)=>{
  pool=new Pool({connectionString:cs});
  await pool.query(`CREATE TABLE IF NOT EXISTS cart_activity(visitor_hash TEXT NOT NULL,product_id BIGINT NOT NULL,event_day DATE NOT NULL DEFAULT ((NOW() AT TIME ZONE 'UTC')::date),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(visitor_hash,product_id,event_day))`);
  await pool.query(`CREATE TABLE IF NOT EXISTS website_visitors(visitor_hash TEXT NOT NULL,event_day DATE NOT NULL DEFAULT ((NOW() AT TIME ZONE 'UTC')::date),created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),PRIMARY KEY(visitor_hash,event_day))`);
+ await pool.query('ALTER TABLE website_visitors ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ');
  if(req.method==='POST'){
  const visitor=crypto.createHash('sha256').update(b.visitor_id.toLowerCase()).digest('hex');
  if(event==='visit'){
- await pool.query('INSERT INTO website_visitors(visitor_hash) VALUES($1) ON CONFLICT DO NOTHING',[visitor]);
+ await pool.query('INSERT INTO website_visitors(visitor_hash,last_seen_at) VALUES($1,NOW()) ON CONFLICT(visitor_hash,event_day) DO UPDATE SET last_seen_at=EXCLUDED.last_seen_at',[visitor]);
  return res.json({ok:true});
  }
  await pool.query(`INSERT INTO cart_activity(visitor_hash,product_id) SELECT $1,id FROM products WHERE id=$2 ON CONFLICT DO NOTHING`,[visitor,String(b.product_id)]);
@@ -36,7 +37,7 @@ module.exports=async(req,res)=>{
  }
  const totals=await pool.query(`SELECT COUNT(DISTINCT visitor_hash)::int AS visitors,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day=(NOW() AT TIME ZONE 'UTC')::date)::int AS today,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-6)::int AS last_seven_days,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-29)::int AS last_thirty_days,MIN(created_at) AS first_event FROM cart_activity`);
  const products=await pool.query(`SELECT a.product_id,COALESCE(p.name,'Deleted product') AS name,COUNT(DISTINCT a.visitor_hash)::int AS visitors FROM cart_activity a LEFT JOIN products p ON p.id=a.product_id WHERE ($1::int=0 OR a.event_day>=(NOW() AT TIME ZONE 'UTC')::date-($1::int-1)) GROUP BY a.product_id,p.name ORDER BY visitors DESC,a.product_id DESC LIMIT 30`,[days]);
- const site=await pool.query(`SELECT COUNT(DISTINCT visitor_hash)::int AS visitors,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day=(NOW() AT TIME ZONE 'UTC')::date)::int AS today,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-6)::int AS last_seven_days,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-29)::int AS last_thirty_days,MIN(created_at) AS first_event FROM website_visitors`);
+ const site=await pool.query(`SELECT COUNT(DISTINCT visitor_hash)::int AS visitors,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day=(NOW() AT TIME ZONE 'UTC')::date)::int AS today,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-6)::int AS last_seven_days,COUNT(DISTINCT visitor_hash) FILTER(WHERE event_day>=(NOW() AT TIME ZONE 'UTC')::date-29)::int AS last_thirty_days,MIN(created_at) AS first_event,MAX(COALESCE(last_seen_at,created_at)) AS last_visit FROM website_visitors`);
  return res.json({totals:totals.rows[0],site_totals:site.rows[0],products:products.rows,time_zone:'UTC'});
  }catch(error){console.error('Cart tracking error',error.message);return res.status(500).json({error:'Cart activity could not be loaded'})}
  finally{if(pool)await pool.end().catch(()=>{})}
