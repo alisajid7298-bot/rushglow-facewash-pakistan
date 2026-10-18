@@ -10,10 +10,12 @@ function reply(message, products=[]) {
  const original=String(message||'').trim().toLowerCase().slice(0,2000);
  const words=[[/فیس\s*واش|face\s+wash|feswash/g,'facewash'],[/سیرم/g,'serum'],[/پالش|پولش/g,'polish'],[/قیمت|ریٹ|keemat|qimat|qemat|rate/g,'price'],[/ڈیلیوری|ترسیل|delivary|delivery fee|shipping/g,'delivery'],[/کتنے دن|کب آئے|kitne din|kab aye|kab mile/g,'delivery time'],[/ادائیگی|پیمنٹ|paymint/g,'payment'],[/ایزی\s*پیسہ/g,'easypaisa'],[/کیش|نقد/g,'cash'],[/آرڈر/g,'order'],[/ٹریک|کہاں پہنچا|kahan pohncha|kaha pohncha/g,'track'],[/واپسی|ریفنڈ|wapis|wapas/g,'return'],[/شکایت|خراب|masla|kharab/g,'problem'],[/استعمال|طریقہ|فائدے|benefits|istemal|istamal|faide|fayde/g,'usage'],[/اجزاء/g,'ingredients'],[/رابطہ|مالک|انسان|contact|owner|insan/g,'support'],[/ڈسکاؤنٹ|کوپن/g,'discount'],[/ریویو|ستارے/g,'review'],[/خرید|khareed|kharid/g,'buy']];
  const q=words.reduce((s,[rx,value])=>s.replace(rx,value),original);
- const buttons=['Products & prices','How to use products','Delivery charges','Payment methods','How to order','Track my order','Discounts & coupons','Returns & support'];
+ const buttons=['Products & prices','How to use products','Delivery charges','Payment methods','How to order','Track my order','Discounts & coupons','Returns & support','Lucky Draw'];
  const result=text=>({text,website,support,buttons});
  if(!q||/^(hi|hello|hey|salam|salaam|assalam.*|start|menu|السلام علیکم|سلام)$/.test(q))
- return result('Welcome to RushGlow! I can help with products, prices, delivery, payment and order tracking. What would you like to know?');
+ return result('Welcome to RushGlow! I can help with products, prices, delivery, payment, order tracking and Lucky Draw entries. What would you like to know?');
+ if(/lucky|lucki|luckydr|lucky.*dr|lottery|قرعہ|قرعہ اندازی|لکی|draw|prize|winner|inaam|inam|انعام|entry slip|entries|chances|serial number|bike|موٹر سائیکل/.test(q))
+ return result('RushGlow Lucky Draw entries:\n\n• Each product unit in an order marked Delivery Complete earns 1 chance. 3 delivered product units earn 3 chances.\n• Repeat purchases receive additional entries; your earlier entries remain listed. Pending deliveries do not qualify yet.\n• Check your entries using the same name and mobile number used on your order: '+website+'/#lucky-draw\n• Results show your name, serial number, product and entry date. Tap Print / Save PDF beside an entry to print its slip or save it as PDF.\n• The progress bar shows completed product units towards the 1,000-product target. Check the page for the latest count.\n\nFor prize details, draw date or winner announcements, please confirm with our team: '+support+'. I cannot confirm a prize, date or winning result that has not been officially announced.');
  if(/cure|treat|allergy|rash|pregnan|medical|guarantee|side effect|جلن|الرجی|حاملہ|ilaj|jalan/.test(q))
  return result('I cannot confirm medical suitability or guarantee skin results. For irritation, allergies or a medical skin condition, consult a qualified healthcare professional. Our team can help with product information: '+support+'.');
  if(/refund|return|damag|missing|complaint|cancel|human|agent|team|support|problem|error|masla|kharab/.test(q))
@@ -47,7 +49,7 @@ function reply(message, products=[]) {
    (named.length&&p.description?' — '+String(p.description).slice(0,500):'')+
    '\n'+website+'/?product='+encodeURIComponent(String(p.id))+'#productsSection').join('\n\n'));
  }
- return result('I can help with RushGlow products, prices, delivery, payment, ordering and reviews. Please choose a topic above, or speak to our team: '+support+'.');
+ return result('I can help with RushGlow products, prices, delivery, payment, ordering, reviews and Lucky Draw entries. Please choose a topic above, or speak to our team: '+support+'.');
 }
 
 
