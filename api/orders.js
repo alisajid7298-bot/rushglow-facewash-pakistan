@@ -68,3 +68,4 @@ const client=await pool.connect();try{await client.query('BEGIN');const consumed
 }
 if(req.method==='PATCH'){const b=req.body||{},allowed=['Pending','Paid','Packed','Shipped','Out for Delivery','Delivery Complete'];if(!b.id||!allowed.includes(b.status))return res.status(400).json({error:'Invalid status'});const q=await pool.query('UPDATE orders SET status=$1,courier=$2,tracking_id=$3 WHERE id=$4 RETURNING id,status,courier,tracking_id',[b.status,b.courier||'',b.tracking_id||'',b.id]);if(!q.rows[0])return res.status(404).json({error:'Order not found'});return res.status(200).json(q.rows[0])}
 if(req.method==='GET'){const q=await pool.query('SELECT * FROM orders ORDER BY id DESC');return res.status(200).json(q.rows)}return res.status(405).end()}catch(e){console.error(e);return res.status(500).json({error:'Database error'})}finally{if(pool)await pool.end().catch(()=>{})}};
+module.exports.notifyOrder=notifyOrder;
