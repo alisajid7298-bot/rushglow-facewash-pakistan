@@ -3,6 +3,7 @@ const {Pool}=require('@neondatabase/serverless');
 const service=require('../lib/whatsapp-service');
 const bot=require('../lib/whatsapp-bot');
 module.exports=async(req,res)=>{
+ if(req.query?.review==='1')return require('../lib/whatsapp-review-handler')(req,res);
  res.setHeader('Cache-Control','no-store');let pool;
  try{
   const q=req.query||{};
