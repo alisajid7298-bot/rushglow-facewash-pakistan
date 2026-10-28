@@ -1,7 +1,7 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto');
 const review=require('../lib/whatsapp-review');
-const handler=require('../api/whatsapp-review');
+const handler=require('../lib/whatsapp-review-handler');
 const {Readable}=require('node:stream');
 const keys=['WA_MANAGEMENT_WABA_ID','WA_PHONE_NUMBER_ID','WA_ACCESS_TOKEN','WA_REVIEW_CODE_HASH','WA_REVIEW_EXPIRES','ADMIN_AUTH_SECRET'];
 test('Isolated reviewer access, expiry, account pinning and read-only enforcement',async()=>{
