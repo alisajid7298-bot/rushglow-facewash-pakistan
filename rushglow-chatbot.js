@@ -2,56 +2,8 @@ document.body.insertAdjacentHTML('beforeend',"<style>\n#rgChatLaunch{position:fi
 
 (()=>{
 
-// Shared RushGlow reply engine. No messages are sent by this module.
-// Pass the current catalog from the products table; never hard-code prices.
-const website='https://rushglow.org';
 const support='https://wa.me/923427278255';
-function reply(message, products=[]) {
- const original=String(message||'').trim().toLowerCase().slice(0,2000);
- const words=[[/فیس\s*واش|face\s+wash|feswash/g,'facewash'],[/سیرم/g,'serum'],[/پالش|پولش/g,'polish'],[/قیمت|ریٹ|keemat|qimat|qemat|rate/g,'price'],[/ڈیلیوری|ترسیل|delivary|delivery fee|shipping/g,'delivery'],[/کتنے دن|کب آئے|kitne din|kab aye|kab mile/g,'delivery time'],[/ادائیگی|پیمنٹ|paymint/g,'payment'],[/ایزی\s*پیسہ/g,'easypaisa'],[/کیش|نقد/g,'cash'],[/آرڈر/g,'order'],[/ٹریک|کہاں پہنچا|kahan pohncha|kaha pohncha/g,'track'],[/واپسی|ریفنڈ|wapis|wapas/g,'return'],[/شکایت|خراب|masla|kharab/g,'problem'],[/استعمال|طریقہ|فائدے|benefits|istemal|istamal|faide|fayde/g,'usage'],[/اجزاء/g,'ingredients'],[/رابطہ|مالک|انسان|contact|owner|insan/g,'support'],[/ڈسکاؤنٹ|کوپن/g,'discount'],[/ریویو|ستارے/g,'review'],[/خرید|khareed|kharid/g,'buy']];
- const q=words.reduce((s,[rx,value])=>s.replace(rx,value),original);
- const buttons=['Products & prices','How to use products','Delivery charges','Payment methods','How to order','Track my order','Discounts & coupons','Returns & support','Lucky Draw'];
- const result=text=>({text,website,support,buttons});
- if(!q||/^(hi|hello|hey|salam|salaam|assalam.*|start|menu|السلام علیکم|سلام)$/.test(q))
- return result('Welcome to RushGlow! I can help with products, prices, delivery, payment, order tracking and Lucky Draw entries. What would you like to know?');
- if(/lucky|lucki|luckydr|lucky.*dr|lottery|قرعہ|قرعہ اندازی|لکی|draw|prize|winner|inaam|inam|انعام|entry slip|entries|chances|serial number|bike|موٹر سائیکل/.test(q))
- return result('RushGlow Lucky Draw entries:\n\n• Each product unit in an order marked Delivery Complete earns 1 chance. 3 delivered product units earn 3 chances.\n• Repeat purchases receive additional entries; your earlier entries remain listed. Pending deliveries do not qualify yet.\n• Check your entries using the same name and mobile number used on your order: '+website+'/#lucky-draw\n• Results show your name, serial number, product and entry date. Tap Print / Save PDF beside an entry to print its slip or save it as PDF.\n• The progress bar shows completed product units towards the 1,000-product target. Check the page for the latest count.\n\nFor prize details, draw date or winner announcements, please confirm with our team: '+support+'. I cannot confirm a prize, date or winning result that has not been officially announced.');
- if(/cure|treat|allergy|rash|pregnan|medical|guarantee|side effect|جلن|الرجی|حاملہ|ilaj|jalan/.test(q))
- return result('I cannot confirm medical suitability or guarantee skin results. For irritation, allergies or a medical skin condition, consult a qualified healthcare professional. Our team can help with product information: '+support+'.');
- if(/refund|return|damag|missing|complaint|cancel|human|agent|team|support|problem|error|masla|kharab/.test(q))
- return result('Our team can help with payment problems, missing or damaged items, cancellations and return requests. Please send your order number and a description to '+support+'. Please do not send passwords, verification codes or card details. A return or refund must be confirmed by our team.');
- if(/track|status|where.*order|order.*where|order number/.test(q))
- return result('To check your order, open '+website+'/#track and enter the order number shown after checkout. If you cannot find it, contact our team: '+support+'.');
- if(/deliver|shipping|courier|swabi|charges|kitne din|kab aye/.test(q)&&!/cash|\bcod\b|easypaisa/.test(q))
- return result('Delivery is free within Swabi District. Outside Swabi District it costs Rs. 200. Enter your city or district at checkout to see the final total. Delivery time depends on your location and courier; contact '+support+' for an estimate.');
- if(/payment|\bpay\b|cash|\bcod\b|easypaisa|easy paisa|card|bank/.test(q))
- return result('You can pay by Cash on Delivery or EasyPaisa. For COD, pay when your order arrives. For EasyPaisa, use the instructions and account shown at checkout and upload your payment screenshot. Card payments are not listed as an available checkout method.');
- if(/review|rating|stars/.test(q))
- return result('Customers whose order is marked Delivery Complete can review products they purchased. Select Write a Review and enter your order number and the phone number used for that order. Approved reviews appear on the product page.');
- if(/discount|coupon|offer/.test(q))
- return result('Current sale prices appear on product cards. If you have a discount code, enter it at checkout and tap Apply. I cannot promise a discount that has not been confirmed at checkout.');
- if(/buy|place.*order|order.*place|checkout|how to order|order kar|order kese|order kaise|order.*کیسے|order.*کرنا/.test(q))
- return result('Open '+website+', tap Buy Now or add products to your cart and select Checkout. Enter your name, phone, complete address and city, choose a payment method, then tap Place Order. Save your order number. If checkout fails, contact our team before ordering again.');
-
- const catalog=Array.isArray(products)?products.filter(p=>p&&p.id&&p.name):[];
- const named=catalog.filter(p=>String(p.name).toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>3&&!['rushglow','rush','glow'].includes(w)).some(w=>q.includes(w)));
- if(/thank|shukriya|شکریہ/.test(q))return result('You are welcome! Let me know if you need help with another RushGlow question.');
- if(/usage|how.*use|use.*product|ingredients|lagana|lagao|kaise.*use|kese.*use|description/.test(q)){
- if(!named.length)return result('Which product would you like to know about: FaceWash, Skin Polish or Whitening Serum? Include its name in your question, for example: How to use FaceWash.');
- return result(named.map(p=>p.name+'\n'+(p.description?String(p.description).slice(0,1600):'Detailed instructions are not currently listed for this product. Please follow the packaging instructions or ask our team.')+'\n'+website+'/?product='+encodeURIComponent(String(p.id))+'#productsSection').join('\n\n')+'\n\nThese are the product details listed by RushGlow. If usage instructions or ingredients are missing, contact our team: '+support+'.');
- }
- if(/install|app|home screen|موبائل ایپ/.test(q))return result('To add RushGlow to your home screen, tap Install RushGlow App on the website. On Android Chrome, use the browser menu to install or add to home screen. On iPhone, open Safari and use Share → Add to Home Screen.');
- if(/product|price|catalog|facewash|face wash|serum|polish|cost|qeemat|kitne|stock/.test(q)||named.length){
-  const selected=named.length?named:catalog;
-  if(!selected.length) return result('Please see our current products and prices at '+website+'/#productsSection. I cannot confirm a price or availability while the catalog is unavailable.');
-  return result(selected.slice(0,15).map(p=>String(p.name)+': Rs. '+String(p.price||'see website')+
-   (Number(p.stock)>0?'':' (currently out of stock)')+
-   (named.length&&p.description?' — '+String(p.description).slice(0,500):'')+
-   '\n'+website+'/?product='+encodeURIComponent(String(p.id))+'#productsSection').join('\n\n'));
- }
- return result('I can help with RushGlow products, prices, delivery, payment, ordering, reviews and Lucky Draw entries. Please choose a topic above, or speak to our team: '+support+'.');
-}
-
+const greeting='Assalamualaikum! Welcome to RushGlow. Which product would you like to order? Tap View Products to see photos and current prices.';
 
 const launch=document.getElementById('rgChatLaunch'),panel=document.getElementById('rgChat'),input=document.getElementById('rgChatInput'),log=document.getElementById('rgChatLog');
 function append(text,user=false){
@@ -72,7 +24,7 @@ function choices(options){
  for(const [label,action] of options){const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=action;box.append(b)}
 }
 function topics(){
- choices([['Shop / Order',()=>ask('Show products to order')],...reply('').buttons.map(label=>[label,()=>ask(label)])]);
+ choices([['View Products',showShopping],['Track Order',()=>{close();document.getElementById('track').scrollIntoView({behavior:'smooth'})}],['Talk to Team',()=>ask('owner')]]);
 }
 function checkoutSelected(){
  const p=currentCatalog().find(p=>selectedProduct&&String(p.id)===String(selectedProduct.id));
@@ -110,10 +62,12 @@ function ask(text){
  if(selectedProduct&&/^(cancel|no|nahi|nahin)$/i.test(text.trim())){selectedProduct=null;append('Selection cancelled.');topics();return}
  if(/^(human|owner|agent|insan)$/i.test(text.trim())){append('For a member of our team, open WhatsApp support: '+support+'.');topics();return}
  if(/^(menu|start|products?|prices?|shop)$/i.test(text.trim())||/show products to order|shop \/ order|products & prices|\b(?:buy|order)\b.*(?:facewash|serum|polish)|(?:facewash|serum|polish).*\b(?:buy|order)\b|order karna|order chahiye/i.test(text)){showShopping();return}
- append(reply(text,currentCatalog()).text);
+ if(/^(hi|hello|salam|salaam|assalam.*|سلام|السلام علیکم)$/i.test(text.trim())){append(greeting);topics();return}
+ if(/face\\s*wash|serum|polish|price|qeemat|product|order|خرید|قیمت|آرڈر/i.test(text)){showShopping();return}
+ append('Please tap View Products to choose your product, or Talk to Team for help.');topics();
 }
 function close(){panel.hidden=true;launch.setAttribute('aria-expanded','false');launch.focus()}
-launch.onclick=()=>{if(!panel.hidden){close();return}panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)append(reply('hello').text);input.focus()};
+launch.onclick=()=>{if(!panel.hidden){close();return}panel.hidden=false;launch.setAttribute('aria-expanded','true');if(!log.children.length)append(greeting);input.focus()};
 document.getElementById('rgChatClose').onclick=close;
 panel.addEventListener('keydown',event=>{if(event.key==='Escape')close()});
 document.getElementById('rgChatForm').onsubmit=event=>{event.preventDefault();const text=input.value.trim();if(!text)return;input.value='';ask(text);input.focus()};
