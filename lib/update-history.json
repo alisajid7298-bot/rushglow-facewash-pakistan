@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-11-12",
+    "summary": "Added rolling Last 24 Hours and Last 48 Hours filters to Website Visitors, visitor sources and Add to Cart Activity."
+  },
+  {
+    "date": "2026-11-07",
+    "summary": "Added multilingual shopping chat, quantity selection, full COD/EasyPaisa chat checkout, payment screenshots, order tracking and protected Website Chat Inbox."
+  },
+  {
+    "date": "2026-11-07",
+    "summary": "Moved tracking above WhatsApp offers; collapsed offer/Lucky Draw forms; widened catalogue cards and grouped chat product action buttons."
+  }
+]

@@ -1,1 +1,11 @@
-{"name":"rushglow-facewash-pakistan","version":"1.0.0","dependencies":{"@neondatabase/serverless":"^1.0.2"}}
+{
+  "name": "rushglow-facewash-pakistan",
+  "version": "1.0.0",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.0.2"
+  },
+  "scripts": {
+    "build": "node scripts/build-update-info.js",
+    "vercel-build": "node scripts/build-update-info.js"
+  }
+}
