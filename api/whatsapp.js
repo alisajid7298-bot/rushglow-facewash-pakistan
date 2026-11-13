@@ -53,7 +53,7 @@ module.exports=async(req,res)=>{
   if(req.method==='GET'&&q.action==='chats')return res.json((await pool.query(`SELECT c.phone,c.name,c.paused,c.last_inbound,c.updated_at,(SELECT body FROM wa_messages m WHERE m.phone=c.phone ORDER BY id DESC LIMIT 1) AS last_message FROM wa_chats c ORDER BY updated_at DESC LIMIT 100`)).rows);
   if(req.method==='GET'&&q.action==='messages'){
    if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).end();
-   return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') ELSE m.body END AS body,m.media_id,m.status,m.error,m.created_at FROM wa_messages m LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
+   return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') WHEN m.body='[reaction]' THEN 'Reaction (emoji was not saved for this older message)' ELSE m.body END AS body,m.media_id,m.status,m.error,m.created_at,m.payload->>'type' AS message_type,r.body AS reaction_to_body FROM wa_messages m LEFT JOIN wa_messages r ON r.meta_id=m.payload->'reaction'->>'message_id' AND r.phone=m.phone LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
   }
   if(req.method==='GET'&&q.action==='media'){
    if(!/^\d{1,30}$/.test(String(q.id||'')))return res.status(400).end();
