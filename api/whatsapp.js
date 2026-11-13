@@ -81,6 +81,11 @@ module.exports=async(req,res)=>{
    const data=await service.graph(process.env.WA_PHONE_NUMBER_ID+'?fields=display_phone_number,verified_name');return res.json({ok:true,display_phone_number:data.display_phone_number,verified_name:data.verified_name});
   }
   const phone=String(body.phone||'');if(!/^\d{8,15}$/.test(phone))return res.status(400).json({error:'Invalid customer phone'});
+  if(q.action==='representative_seen'){
+   if(typeof body.requested_at!=='string'||!Number.isFinite(Date.parse(body.requested_at)))return res.status(400).json({error:'Invalid request timestamp'});
+   const seen=await pool.query('UPDATE wa_chats SET representative_requested_at=NULL WHERE phone=$1 AND representative_requested_at=$2::timestamptz RETURNING phone',[phone,body.requested_at]);
+   return res.json({ok:true,cleared:seen.rows.length>0});
+  }
   if(q.action==='pause'){
    await pool.query('UPDATE wa_chats SET paused=$2,representative_requested_at=CASE WHEN $2 THEN representative_requested_at ELSE NULL END,updated_at=NOW() WHERE phone=$1',[phone,!!body.paused]);return res.json({ok:true});
   }
@@ -97,3 +102,4 @@ module.exports=async(req,res)=>{
  finally{if(pool)await pool.end().catch(()=>{});}
 };
 module.exports.config={api:{bodyParser:false}};
+

@@ -21,6 +21,14 @@ test('Representative requests persist, require admin access and clear after succ
  assert.equal((await call('representative_requests',null,false)).code,401);
  const pending=await call('representative_requests');assert.equal(pending.code,200);assert.equal(pending.data.length,1);assert.equal(pending.data[0].name,'Test Customer');
  assert.ok((await call('chats')).data[0].representative_requested_at);
+ const requestedAt=new Date(chat.representative_requested_at).toISOString();
+ assert.equal((await call('representative_seen',{phone:event.from,requested_at:requestedAt},false)).code,401);
+ assert.equal((await call('representative_seen',{phone:event.from,requested_at:'bad'})).code,400);
+ assert.equal((await call('representative_seen',{phone:event.from,requested_at:'2000-01-01T00:00:00Z'})).data.cleared,false);
+ assert.equal((await call('representative_requests')).data.length,1);
+ assert.equal((await call('representative_seen',{phone:event.from,requested_at:requestedAt})).data.cleared,true);
+ chat=(await db.query('SELECT * FROM wa_chats')).rows[0];assert.equal(chat.paused,true);assert.equal(chat.state.stage,'human');assert.equal(chat.representative_requested_at,null);
+ await db.query('UPDATE wa_chats SET representative_requested_at=NOW()');
  fail=true;await call('reply',{phone:event.from,text:'Testing failure'});assert.equal((await call('representative_requests')).data.length,1);
  fail=false;await call('reply',{phone:event.from,text:'A Representative is here to help.'});assert.equal((await call('representative_requests')).data.length,0);assert.equal((await db.query('SELECT paused FROM wa_chats')).rows[0].paused,true);
  await db.query('UPDATE wa_chats SET representative_requested_at=NOW()');await call('pause',{phone:event.from,paused:false});
