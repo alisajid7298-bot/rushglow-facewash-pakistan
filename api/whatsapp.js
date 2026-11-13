@@ -50,7 +50,8 @@ module.exports=async(req,res)=>{
    const missing=['WA_VERIFY_TOKEN','WA_APP_SECRET','WA_ACCESS_TOKEN','WA_PHONE_NUMBER_ID'].filter(k=>!process.env[k]);
    return res.json({enabled,configured:missing.length===0,missing,callback:'https://rushglow.org/api/whatsapp',phoneId:process.env.WA_PHONE_NUMBER_ID||'',testMode:false});
   }
-  if(req.method==='GET'&&q.action==='chats')return res.json((await pool.query(`SELECT c.phone,c.name,c.paused,c.last_inbound,c.updated_at,(SELECT body FROM wa_messages m WHERE m.phone=c.phone ORDER BY id DESC LIMIT 1) AS last_message FROM wa_chats c ORDER BY updated_at DESC LIMIT 100`)).rows);
+  if(req.method==='GET'&&q.action==='representative_requests')return res.json((await pool.query('SELECT phone,name,representative_requested_at FROM wa_chats WHERE representative_requested_at IS NOT NULL ORDER BY representative_requested_at DESC LIMIT 100')).rows);
+  if(req.method==='GET'&&q.action==='chats')return res.json((await pool.query(`SELECT c.phone,c.name,c.paused,c.last_inbound,c.updated_at,c.representative_requested_at,(SELECT body FROM wa_messages m WHERE m.phone=c.phone ORDER BY id DESC LIMIT 1) AS last_message FROM wa_chats c ORDER BY c.representative_requested_at DESC NULLS LAST,c.updated_at DESC LIMIT 100`)).rows);
   if(req.method==='GET'&&q.action==='messages'){
    if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).end();
    return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') WHEN m.body='[reaction]' THEN 'Reaction (emoji was not saved for this older message)' ELSE m.body END AS body,m.media_id,m.status,m.error,m.created_at,m.payload->>'type' AS message_type,r.body AS reaction_to_body FROM wa_messages m LEFT JOIN wa_messages r ON r.meta_id=m.payload->'reaction'->>'message_id' AND r.phone=m.phone LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
@@ -81,13 +82,15 @@ module.exports=async(req,res)=>{
   }
   const phone=String(body.phone||'');if(!/^\d{8,15}$/.test(phone))return res.status(400).json({error:'Invalid customer phone'});
   if(q.action==='pause'){
-   await pool.query('UPDATE wa_chats SET paused=$2,updated_at=NOW() WHERE phone=$1',[phone,!!body.paused]);return res.json({ok:true});
+   await pool.query('UPDATE wa_chats SET paused=$2,representative_requested_at=CASE WHEN $2 THEN representative_requested_at ELSE NULL END,updated_at=NOW() WHERE phone=$1',[phone,!!body.paused]);return res.json({ok:true});
   }
   if(q.action==='reply'){
    if(!process.env.WA_ACCESS_TOKEN||!process.env.WA_PHONE_NUMBER_ID)return res.status(409).json({error:'WhatsApp API not connected'});
    const reply=String(body.text||'').trim();if(!reply||reply.length>4000)return res.status(400).json({error:'Enter a message of 1–4000 characters'});
-   const db=await pool.connect();try{await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['rushglow-wa:'+phone]);const chat=(await db.query('SELECT last_inbound FROM wa_chats WHERE phone=$1',[phone])).rows[0];if(!chat||Date.now()-new Date(chat.last_inbound).getTime()>=23.9*3600000){await db.query('ROLLBACK');return res.status(409).json({error:'Customer service window closed. Customer must message again, or an approved template is required.'});}await db.query('UPDATE wa_chats SET paused=TRUE,updated_at=NOW() WHERE phone=$1',[phone]);await service.enqueue(db,phone,bot.text(reply),'human');await db.query('COMMIT');}catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
-   await service.flush(pool,phone);return res.json({ok:true});
+   const db=await pool.connect();let replyId;try{await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock(hashtextextended($1,0))',['rushglow-wa:'+phone]);const chat=(await db.query('SELECT last_inbound FROM wa_chats WHERE phone=$1',[phone])).rows[0];if(!chat||Date.now()-new Date(chat.last_inbound).getTime()>=23.9*3600000){await db.query('ROLLBACK');return res.status(409).json({error:'Customer service window closed. Customer must message again, or an approved template is required.'});}await db.query('UPDATE wa_chats SET paused=TRUE,updated_at=NOW() WHERE phone=$1',[phone]);replyId=await service.enqueue(db,phone,bot.text(reply),'human');await db.query('COMMIT');}catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}
+   await service.flush(pool,phone);
+   await pool.query("UPDATE wa_chats SET representative_requested_at=NULL WHERE phone=$1 AND EXISTS(SELECT 1 FROM wa_messages WHERE id=$2 AND status IN('sent','delivered','read'))",[phone,replyId]);
+   return res.json({ok:true});
   }
   return res.status(400).json({error:'Unknown action'});
  }catch(e){console.error('WhatsApp service error',e.code||e.name);return res.status(503).json({error:'WhatsApp service temporarily unavailable',...(e.code?{code:e.code}:{})});}
