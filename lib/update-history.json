@@ -1,5 +1,9 @@
 [
   {
+    "date": "2026-11-13",
+    "summary": "Updated WhatsApp bot English wording and product order, added Talk to Representative, and made delivery free for every city and district."
+  },
+  {
     "date": "2026-11-12",
     "summary": "Added rolling Last 24 Hours and Last 48 Hours filters to Website Visitors, visitor sources and Add to Cart Activity."
   },
