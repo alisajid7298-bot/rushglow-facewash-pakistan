@@ -40,6 +40,10 @@ module.exports=async(req,res)=>{
    for(const entry of body.entry||[])for(const change of entry.changes||[]){
     const value=change.value||{};
     if(String(value.metadata?.phone_number_id)!==String(process.env.WA_PHONE_NUMBER_ID))continue;
+    if(change.field==='smb_message_echoes'){
+     for(const echo of value.message_echoes||[])await require('../lib/whatsapp-app-echo').record(pool,echo,value.metadata?.display_phone_number,value.contacts?.find(c=>c.wa_id===echo.to)?.profile?.name||'');
+     continue;
+    }
     for(const status of value.statuses||[])await pool.query("UPDATE wa_messages SET status=$2,error=$3 WHERE meta_id=$1",[status.id,String(status.status||'').slice(0,40),status.errors?.length?service.metaError(status.errors[0]):null]);
     for(const message of value.messages||[])await service.processMessage(pool,message,value.contacts?.find(c=>c.wa_id===message.from)?.profile?.name||'');
    }
