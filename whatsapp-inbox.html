@@ -72,6 +72,14 @@ function renderChatOrders(orders){
    const preview=document.createElement('p');preview.className='muted';preview.textContent='Your order #'+order.id+' has been packed and is ready for dispatch. Thank you for shopping with RUSHGLOW!';card.append(preview,button);
    button.onclick=async()=>{if(busy)return;busy=true;button.disabled=true;try{const result=await api('pack_order',{id:String(order.id)});notice(result.notification_error||packedNotificationLabel(result.notification_status));await refresh();}catch(e){notice(e.message);}finally{busy=false;button.disabled=false;}};
   }
+  const completeLabel=document.createElement('p');completeLabel.className='muted';completeLabel.textContent='Completion message: '+packedNotificationLabel(order.completed_notification_status,order.completed_notification_error);
+  if(order.wa_completed_message_id)card.append(completeLabel);
+  if(['Pending','Paid','Packed','Shipped','Out for Delivery','Delivery Complete'].includes(order.status)&&!order.wa_completed_message_id){
+   const complete=document.createElement('button');complete.type='button';complete.className='primary';complete.textContent=order.status==='Delivery Complete'?'Notify Customer — Order Complete':'Complete Order & Notify Customer';
+   complete.onclick=async()=>{if(busy||!confirm('Complete Order #'+order.id+' and notify the customer?'))return;busy=true;complete.disabled=true;try{const result=await api('complete_order',{id:String(order.id)});notice(result.notification_error||'Order completed. '+packedNotificationLabel(result.notification_status));await refresh();}catch(e){notice(e.message);}finally{busy=false;complete.disabled=false;}};
+   card.append(complete);
+  }
+  const mobile=document.createElement('p');mobile.className='muted';mobile.textContent='Owner WhatsApp: send “Order #'+order.id+' completed” in this customer chat to complete the order here too.';card.append(mobile);
   box.append(card);
  }
 }
@@ -120,3 +128,4 @@ run($('logout'),async()=>{await fetch('/api/admin-auth',{method:'POST',headers:{
 $('replyForm').onsubmit=async e=>{e.preventDefault();if(!current||busy)return;busy=true;$('send').disabled=true;try{await api('reply',{phone:current.phone,text:$('reply').value});$('reply').value='';await refresh();notice('Reply process ho gaya. Message ke neeche delivery status dekhein.');}catch(e){notice(e.message);}finally{busy=false;$('send').disabled=!status?.configured;}};
 auth().catch(e=>notice(e.message));setInterval(()=>{if(loggedIn&&!busy&&!document.hidden)refresh().catch(e=>notice(e.message));},12000);setInterval(()=>{if(loggedIn)auth().catch(e=>notice(e.message));},300000);
 </script></body></html>
+

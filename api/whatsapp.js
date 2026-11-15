@@ -79,6 +79,10 @@ module.exports=async(req,res)=>{
    if(!process.env.WA_ACCESS_TOKEN||!process.env.WA_PHONE_NUMBER_ID)return res.status(409).json({error:'API credentials missing'});
    const data=await service.graph(process.env.WA_PHONE_NUMBER_ID+'?fields=display_phone_number,verified_name');return res.json({ok:true,display_phone_number:data.display_phone_number,verified_name:data.verified_name});
   }
+  if(q.action==='complete_order'){
+   try{return res.json(await require('../lib/whatsapp-complete').markComplete(pool,body.id));}
+   catch(error){if(error.status)return res.status(error.status).json({error:error.message});throw error;}
+  }
   if(q.action==='pack_order'){
    try{return res.json(await require('../lib/whatsapp-order-updates').markPacked(pool,body.id));}
    catch(error){if(error.status)return res.status(error.status).json({error:error.message});throw error;}
@@ -105,3 +109,4 @@ module.exports=async(req,res)=>{
  finally{if(pool)await pool.end().catch(()=>{});}
 };
 module.exports.config={api:{bodyParser:false}};
+
