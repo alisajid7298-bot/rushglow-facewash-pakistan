@@ -64,16 +64,7 @@ module.exports=async(req,res)=>{
    if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).end();
    return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') WHEN m.body IN ('[unsupported]','[unknown]') THEN 'Message content unavailable from Meta. Check the owner WhatsApp Business app.' WHEN m.body='[reaction]' THEN 'Reaction (emoji was not saved for this older message)' ELSE m.body END AS body,m.media_id,m.status,CASE WHEN m.error='Meta error 131026' THEN 'Meta error 131026 · Message could not be delivered. Ask the customer to send a new text message; check their WhatsApp app and blocked contacts.' ELSE m.error END AS error,m.created_at,m.payload->>'type' AS message_type,r.body AS reaction_to_body FROM wa_messages m LEFT JOIN wa_messages r ON r.meta_id=m.payload->'reaction'->>'message_id' AND r.phone=m.phone LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
   }
-  if(req.method==='GET'&&q.action==='media'){
-   if(!/^\d{1,30}$/.test(String(q.id||'')))return res.status(400).end();
-   if(!(await pool.query('SELECT id FROM wa_messages WHERE media_id=$1 LIMIT 1',[q.id])).rows.length)return res.status(404).end();
-   const media=await service.graph(q.id);const url=new URL(media.url);
-   if(url.protocol!=='https:'||!/(^|\.)(facebook\.com|fbsbx\.com|fbcdn\.net)$/.test(url.hostname))return res.status(502).end();
-   const r=await fetch(url,{headers:{Authorization:'Bearer '+process.env.WA_ACCESS_TOKEN},signal:AbortSignal.timeout(10000),redirect:'error'});
-   if(!r.ok)return res.status(502).end();
-   const type=(r.headers.get('content-type')||'').split(';')[0];if(!['image/jpeg','image/png','image/webp'].includes(type))return res.status(415).end();
-   const data=Buffer.from(await r.arrayBuffer());if(data.length>4000000)return res.status(413).end();res.setHeader('Content-Type',type);res.setHeader('X-Content-Type-Options','nosniff');return res.send(data);
-  }
+  if(req.method==='GET'&&q.action==='media')return require('../lib/whatsapp-media').serve(pool,req,res);
   if(req.method!=='POST')return res.status(405).end();
   const origin=req.headers.origin;if(origin!=='https://rushglow.org'&&origin!=='https://www.rushglow.org')return res.status(403).json({error:'Invalid request origin'});
   // bodyParser is off to verify Meta's exact bytes. Admin requests are parsed here.

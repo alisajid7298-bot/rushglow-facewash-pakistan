@@ -51,7 +51,7 @@ run($('sendCode'),()=>loginAction('send'));run($('verify'),()=>loginAction('veri
 async function refresh(){status=await api('status');$('connection').textContent=status.configured?(status.enabled?'API settings saved · Bot ON':'API settings saved · Bot OFF'):'API connection incomplete';$('setup').textContent=status.missing.length?'Missing server settings: '+status.missing.join(', '):'Use “Check API connection” to verify access. Incoming message ka test complete hone par hi live status confirm karein.';$('toggle').textContent=status.enabled?'Turn bot OFF':'Turn bot ON';$('toggle').disabled=!status.configured;chats=await api('chats');if(requestedPhone&&!current){current=chats.find(c=>c.phone===requestedPhone)||null;if(current)requestedPhone=null;}renderRepresentativeAlerts();renderChats();if(current){current=chats.find(c=>c.phone===current.phone)||null;if(current)await messages();}}
 let requestedPhone=new URLSearchParams(location.search).get('phone');
 if(!/^\d{8,15}$/.test(requestedPhone||''))requestedPhone=null;
-async function selectChat(chat){current=chat;requestedPhone=null;$('chatOrders').hidden=true;$('chatOrders').replaceChildren();renderChats();try{await messages();if(matchMedia('(max-width:700px)').matches)$('customer').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){notice(e.message);}}
+async function selectChat(chat){for(const player of $('messages').querySelectorAll('audio'))player.pause();$('messages').replaceChildren();current=chat;requestedPhone=null;$('chatOrders').hidden=true;$('chatOrders').replaceChildren();renderChats();try{await messages();if(matchMedia('(max-width:700px)').matches)$('customer').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){notice(e.message);}}
 function renderRepresentativeAlerts(){const box=$('representativeAlerts');box.replaceChildren();const pending=chats.filter(c=>c.representative_requested_at);box.hidden=!pending.length;document.title=(pending.length?'('+pending.length+') Representative requests · ':'')+'RushGlow WhatsApp Inbox';if(!pending.length)return;const title=document.createElement('h2');title.textContent='🔔 Representative requested ('+pending.length+')';box.append(title);for(const c of pending){const b=document.createElement('button');b.type='button';b.textContent=(c.name||'Customer')+' · +'+c.phone+' · '+new Date(c.representative_requested_at).toLocaleString()+' — Open chat';b.onclick=()=>selectChat(c);box.append(b);}}
 function renderChats(){const box=$('chats');box.replaceChildren();if(!chats.length){const p=document.createElement('p');p.textContent='Abhi koi API customer chat nahi aayi.';p.className='muted';box.append(p);}for(const c of chats){const b=document.createElement('button');b.className='chat'+(c.representative_requested_at?' needs-representative':'')+(current?.phone===c.phone?' selected':'');const name=document.createElement('strong');name.textContent=(c.representative_requested_at?'🔔 Representative requested · ':'')+(c.name||c.phone);const small=document.createElement('small');small.textContent='+'+c.phone+' · '+(c.last_message||'');b.append(name,small);b.onclick=()=>selectChat(c);box.append(b);}}
 function packedNotificationLabel(status,error){
@@ -76,7 +76,40 @@ function renderChatOrders(orders){
  }
 }
 
-async function messages(){if(!current)return;const selectedPhone=current.phone;const [rows,orders]=await Promise.all([api('messages',null,'&phone='+encodeURIComponent(selectedPhone)),api('order_updates',null,'&phone='+encodeURIComponent(selectedPhone))]);if(current?.phone!==selectedPhone)return;renderChatOrders(orders);$('customer').textContent=(current.name||'Customer')+' · +'+current.phone;$('mode').textContent=current.representative_requested_at?'🔔 Customer is waiting for a Representative':current.paused?'Bot paused · Representative can reply':'Bot active for this chat';$('pause').textContent=current.paused?'Resume bot':'Pause bot';$('pause').disabled=false;const within=Date.now()-new Date(current.last_inbound).getTime()<23.9*3600000;$('reply').disabled=!status.configured||!within;$('send').disabled=!status.configured||!within;const log=$('messages');const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60;log.replaceChildren();for(const m of rows){const el=document.createElement('div');el.className='message'+(m.direction!=='inbound'?' out':'');const body=document.createElement('span');body.textContent=m.body;el.append(body);if(m.message_type==='reaction'){const quote=document.createElement('blockquote');quote.textContent=m.reaction_to_body||'Original message is not available in this inbox.';el.append(quote);}if(m.media_id){const a=document.createElement('a');a.href='/api/whatsapp?action=media&id='+encodeURIComponent(m.media_id);a.target='_blank';a.rel='noopener';a.textContent=m.direction==='app_owner'?'View WhatsApp image':'View payment image';el.append(document.createElement('br'),a);}const meta=document.createElement('small');meta.textContent=(m.direction==='inbound'?'Customer':m.direction==='app_owner'?'Representative (mobile WhatsApp)':m.direction==='human'?'Representative (control panel)':'Bot')+' · '+new Date(m.created_at).toLocaleString()+' · '+m.status+(m.error?' · '+m.error:'');el.append(meta);log.append(el);}if(atBottom)log.scrollTop=log.scrollHeight;
+function renderConversation(rows,log){
+ const existing=new Map(Array.from(log.children).map(el=>[el.dataset.messageId,el]));
+ const wanted=new Set(rows.map(m=>String(m.id)));
+ for(const el of Array.from(log.children)){if(!wanted.has(el.dataset.messageId))el.remove();}
+ rows.forEach((m,index)=>{
+  const id=String(m.id);let el=existing.get(id);
+  if(!el){el=document.createElement('div');el.dataset.messageId=id;const body=document.createElement('span');body.className='message-body';const media=document.createElement('div');media.className='message-media';const meta=document.createElement('small');meta.className='message-meta';el.append(body,media,meta);}
+  el.className='message'+(m.direction!=='inbound'?' out':'');el.querySelector('.message-body').textContent=m.body;
+  let quote=el.querySelector('blockquote');
+  if(m.message_type==='reaction'){if(!quote){quote=document.createElement('blockquote');el.insertBefore(quote,el.querySelector('.message-media'));}quote.textContent=m.reaction_to_body||'Original message is not available in this inbox.';}else if(quote)quote.remove();
+  const media=el.querySelector('.message-media'),mediaKey=(m.message_type||'')+':'+(m.media_id||'');
+  // Keep the same audio element across background refreshes so playback does
+  // not stop or return to the start every 12 seconds.
+  if(media.dataset.key!==mediaKey){
+   media.dataset.key=mediaKey;media.replaceChildren();
+   if(m.media_id){
+    const url='/api/whatsapp?action=media&id='+encodeURIComponent(m.media_id);
+    if(m.message_type==='audio'){
+     const player=document.createElement('audio');player.controls=true;player.preload='none';player.src=url;player.setAttribute('aria-label','Play voice message');player.style.cssText='display:block;width:280px;max-width:100%;margin-top:8px';
+     const help=document.createElement('small');help.setAttribute('role','status');help.textContent='Press Play to listen.';
+     player.addEventListener('error',()=>{help.textContent='Audio could not be played. Meta may no longer have the file, this browser may not support its format, or it may exceed 4 MB. Check WhatsApp.';});
+     player.addEventListener('playing',()=>{help.textContent='Playing voice message';});player.addEventListener('ended',()=>{help.textContent='Voice message finished';});
+     media.append(player,help);
+    }else{
+     const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent=m.direction==='app_owner'?'View WhatsApp image':'View payment image';media.append(link);
+    }
+   }
+  }
+  el.querySelector('.message-meta').textContent=(m.direction==='inbound'?'Customer':m.direction==='app_owner'?'Representative (mobile WhatsApp)':m.direction==='human'?'Representative (control panel)':'Bot')+' · '+new Date(m.created_at).toLocaleString()+' · '+m.status+(m.error?' · '+m.error:'');
+  if(log.children[index]!==el)log.insertBefore(el,log.children[index]||null);
+ });
+}
+
+async function messages(){if(!current)return;const selectedPhone=current.phone;const [rows,orders]=await Promise.all([api('messages',null,'&phone='+encodeURIComponent(selectedPhone)),api('order_updates',null,'&phone='+encodeURIComponent(selectedPhone))]);if(current?.phone!==selectedPhone)return;renderChatOrders(orders);$('customer').textContent=(current.name||'Customer')+' · +'+current.phone;$('mode').textContent=current.representative_requested_at?'🔔 Customer is waiting for a Representative':current.paused?'Bot paused · Representative can reply':'Bot active for this chat';$('pause').textContent=current.paused?'Resume bot':'Pause bot';$('pause').disabled=false;const within=Date.now()-new Date(current.last_inbound).getTime()<23.9*3600000;$('reply').disabled=!status.configured||!within;$('send').disabled=!status.configured||!within;const log=$('messages');const atBottom=log.scrollHeight-log.scrollTop-log.clientHeight<60;renderConversation(rows,log);if(atBottom)log.scrollTop=log.scrollHeight;
 const requestedAt=current.representative_requested_at;
 if(requestedAt&&!document.hidden){const seen=await api('representative_seen',{phone:selectedPhone,requested_at:requestedAt});if(seen.cleared){for(const chat of chats){if(chat.phone===selectedPhone&&chat.representative_requested_at===requestedAt)chat.representative_requested_at=null;}if(current?.phone===selectedPhone&&current.representative_requested_at===requestedAt)current.representative_requested_at=null;renderRepresentativeAlerts();renderChats();if(current?.phone===selectedPhone)$('mode').textContent=current.representative_requested_at?'🔔 Customer is waiting for a Representative':current.paused?'Bot paused · Representative can reply':'Bot active for this chat';}}
 }
