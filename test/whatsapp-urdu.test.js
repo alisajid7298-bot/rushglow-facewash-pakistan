@@ -14,5 +14,5 @@ test('Urdu bot accepts English and Urdu checkout details and retains English pro
  let r=bot.advance({stage:'details'},{text:'Name: Ali Khan\n03427278255\nHouse 12 Main Road'},products,'Ali');assert.equal(r.state.stage,'city');r=bot.advance(r.state,{text:'Islamabad'},products,'Ali');assert.equal(r.state.city,'Islamabad');assert.equal(r.state.stage,'payment');
  const receipt=bot.orderConfirmation({id:17,product_name:'RushGlow FaceWash',price:1200,payment_method:'Cash on Delivery'});assert.match(receipt,/RushGlow Face Wash/);assert.match(receipt,/کیش آن ڈیلیوری/);
  assert.equal(bot.advance({}, {text:'نمائندے سے بات کریں'},products,'Ali').handoff,true);
- for(const m of bot.catalog(products).filter(m=>m.interactive))for(const b of m.interactive.action.buttons)assert.ok(b.reply.title.length<=20);
+ for(const m of bot.catalog(products).filter(m=>m.interactive))for(const section of m.interactive.action.sections)for(const row of section.rows)assert.ok(row.title.length<=24);
 });
