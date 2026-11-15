@@ -25,7 +25,7 @@ module.exports=async(req,res)=>{
   }else if(!(req.method==='GET'&&q.image)&&!isAdmin)return res.status(401).json({error:'Admin login required'});
   const cs=process.env.POSTGRES_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL_NON_POOLING;
   if(!cs)return res.status(503).json({error:'Database not configured'});
-  pool=new Pool({connectionString:cs});
+  pool=new Pool({connectionString:cs,...(req.method==='GET'&&q.action==='media'?{connectionTimeoutMillis:10000,query_timeout:10000}:{})});
   if(req.method==='GET'&&q.image){
    if(!/^\d+$/.test(String(q.image)))return res.status(400).end();
    const photo=(await pool.query('SELECT photo FROM products WHERE id=$1',[q.image])).rows[0]?.photo||'';
@@ -35,6 +35,8 @@ module.exports=async(req,res)=>{
    if(/^https:\/\//i.test(photo))return res.redirect(302,photo);
    return res.status(404).end();
   }
+  // Media is read-only: avoid schema ALTER locks and await its response before pool cleanup.
+  if(req.method==='GET'&&q.action==='media')return await require('../lib/whatsapp-media').serve(pool,req,res);
   await service.schema(pool);
   if(webhook){
    for(const entry of body.entry||[])for(const change of entry.changes||[]){
@@ -64,7 +66,6 @@ module.exports=async(req,res)=>{
    if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).end();
    return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') WHEN m.body IN ('[unsupported]','[unknown]') THEN 'Message content unavailable from Meta. Check the owner WhatsApp Business app.' WHEN m.body='[reaction]' THEN 'Reaction (emoji was not saved for this older message)' ELSE m.body END AS body,m.media_id,m.status,CASE WHEN m.error='Meta error 131026' THEN 'Meta error 131026 · Message could not be delivered. Ask the customer to send a new text message; check their WhatsApp app and blocked contacts.' ELSE m.error END AS error,m.created_at,m.payload->>'type' AS message_type,r.body AS reaction_to_body FROM wa_messages m LEFT JOIN wa_messages r ON r.meta_id=m.payload->'reaction'->>'message_id' AND r.phone=m.phone LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
   }
-  if(req.method==='GET'&&q.action==='media')return require('../lib/whatsapp-media').serve(pool,req,res);
   if(req.method!=='POST')return res.status(405).end();
   const origin=req.headers.origin;if(origin!=='https://rushglow.org'&&origin!=='https://www.rushglow.org')return res.status(403).json({error:'Invalid request origin'});
   // bodyParser is off to verify Meta's exact bytes. Admin requests are parsed here.
