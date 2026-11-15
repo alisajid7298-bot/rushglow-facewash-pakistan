@@ -52,6 +52,10 @@ module.exports=async(req,res)=>{
   }
   if(req.method==='GET'&&q.action==='representative_requests')return res.json((await pool.query('SELECT phone,name,representative_requested_at FROM wa_chats WHERE representative_requested_at IS NOT NULL ORDER BY representative_requested_at DESC LIMIT 100')).rows);
   if(req.method==='GET'&&q.action==='chats')return res.json((await pool.query(`SELECT c.phone,c.name,c.paused,c.last_inbound,c.updated_at,c.representative_requested_at,(SELECT body FROM wa_messages m WHERE m.phone=c.phone ORDER BY id DESC LIMIT 1) AS last_message FROM wa_chats c ORDER BY c.representative_requested_at DESC NULLS LAST,c.updated_at DESC LIMIT 100`)).rows);
+  if(req.method==='GET'&&q.action==='order_updates'){
+   if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).json({error:'Invalid customer phone'});
+   return res.json(await require('../lib/whatsapp-order-updates').ordersForChat(pool,String(q.phone)));
+  }
   if(req.method==='GET'&&q.action==='messages'){
    if(!/^\d{8,15}$/.test(String(q.phone||'')))return res.status(400).end();
    return res.json((await pool.query(`SELECT m.id,m.direction,CASE WHEN m.direction='inbound' AND m.body ~ '^product:[0-9]+$' THEN COALESCE(p.name,'Product no longer available') WHEN m.body IN ('[unsupported]','[unknown]') THEN 'Message content unavailable from Meta. Check the owner WhatsApp Business app.' WHEN m.body='[reaction]' THEN 'Reaction (emoji was not saved for this older message)' ELSE m.body END AS body,m.media_id,m.status,CASE WHEN m.error='Meta error 131026' THEN 'Meta error 131026 · Message could not be delivered. Ask the customer to send a new text message; check their WhatsApp app and blocked contacts.' ELSE m.error END AS error,m.created_at,m.payload->>'type' AS message_type,r.body AS reaction_to_body FROM wa_messages m LEFT JOIN wa_messages r ON r.meta_id=m.payload->'reaction'->>'message_id' AND r.phone=m.phone LEFT JOIN products p ON m.direction='inbound' AND m.body ~ '^product:[0-9]+$' AND p.id::text=substring(m.body from 9) WHERE m.phone=$1 ORDER BY m.id DESC LIMIT 150`,[q.phone])).rows.reverse());
@@ -80,6 +84,10 @@ module.exports=async(req,res)=>{
    if(!process.env.WA_ACCESS_TOKEN||!process.env.WA_PHONE_NUMBER_ID)return res.status(409).json({error:'API credentials missing'});
    const data=await service.graph(process.env.WA_PHONE_NUMBER_ID+'?fields=display_phone_number,verified_name');return res.json({ok:true,display_phone_number:data.display_phone_number,verified_name:data.verified_name});
   }
+  if(q.action==='pack_order'){
+   try{return res.json(await require('../lib/whatsapp-order-updates').markPacked(pool,body.id));}
+   catch(error){if(error.status)return res.status(error.status).json({error:error.message});throw error;}
+  }
   const phone=String(body.phone||'');if(!/^\d{8,15}$/.test(phone))return res.status(400).json({error:'Invalid customer phone'});
   if(q.action==='representative_seen'){
    if(typeof body.requested_at!=='string'||!Number.isFinite(Date.parse(body.requested_at)))return res.status(400).json({error:'Invalid request timestamp'});
@@ -102,4 +110,3 @@ module.exports=async(req,res)=>{
  finally{if(pool)await pool.end().catch(()=>{});}
 };
 module.exports.config={api:{bodyParser:false}};
-
