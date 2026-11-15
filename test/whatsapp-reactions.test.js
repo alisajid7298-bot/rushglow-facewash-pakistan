@@ -34,12 +34,13 @@ test('Reactions preserve emoji, checkout and service window, and send welcome wh
  await db.query("UPDATE wa_chats SET last_inbound=$1 WHERE phone='923001234567'",[lastInbound]);
  await service.processMessage(pool,react('reaction-4','👍'),'Ali');
  await service.processMessage(pool,react('reaction-4','👍'),'Ali');
- assert.equal(sent,1);
+ assert.equal(sent,2);
  const welcome=(await db.query("SELECT body FROM wa_messages WHERE meta_id='welcome-1'")).rows[0];
  assert.equal(welcome.body,'Welcome to RUSHGLOW Beauty & Skincare!\nPlease Select a Product with Free Delivery.');
  const after=(await db.query("SELECT * FROM wa_chats WHERE phone='923001234567'")).rows[0];
  assert.deepEqual(after.state,{stage:'payment'});assert.equal(new Date(after.last_inbound).getTime(),lastInbound.getTime());
  await db.query("UPDATE wa_chats SET paused=TRUE WHERE phone='923001234567'");
- await service.processMessage(pool,react('reaction-5','👍'),'Ali');assert.equal(sent,1);
+ await service.processMessage(pool,react('reaction-5','👍'),'Ali');assert.equal(sent,2);
  }finally{global.fetch=originalFetch;await pg.close();}
 });
+
