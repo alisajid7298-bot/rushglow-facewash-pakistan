@@ -11,7 +11,8 @@ test('Each photo card YES chooses its own product and moves directly to details'
   assert.equal(next.state.productId,String(products[i].id));assert.equal(next.state.stage,'details');assert.equal(next.state.unitPrice,products[i].price);assert.equal(next.order,undefined);
   assert.deepEqual(bot.advance(next.state,{action:'cancel'},products,'Sajid').state,{});
  }
- assert.equal(bot.catalog(products)[0].interactive.action.sections[0].rows.at(-1).id,'representative');
+ assert.match(bot.catalog(products)[0].text.body,/5. نمائندے سے بات کریں/);
  assert.equal(cards.slice(0,-1).some(c=>c.interactive.action.buttons.some(b=>b.reply.id==='representative')),false);
  const unavailable=bot.advance({}, {action:'order_product:24'},products.map(p=>({...p,stock:0})),'Sajid');assert.equal(unavailable.state.productId,undefined);
 });
+
