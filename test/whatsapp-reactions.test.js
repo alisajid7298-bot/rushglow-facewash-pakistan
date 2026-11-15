@@ -36,7 +36,7 @@ test('Reactions preserve emoji, checkout and service window, and send welcome wh
  await service.processMessage(pool,react('reaction-4','👍'),'Ali');
  assert.equal(sent,2);
  const welcome=(await db.query("SELECT body FROM wa_messages WHERE meta_id='welcome-1'")).rows[0];
- assert.equal(welcome.body,'رش گلو بیوٹی اینڈ سکن کیئر میں خوش آمدید!\nمفت ڈیلیوری کے ساتھ اپنی پسند کی پروڈکٹ منتخب کریں۔');
+ assert.equal(welcome.body,'*رش گلو بیوٹی اینڈ سکن کیئر میں خوش آمدید!*\n*مفت ڈیلیوری کے ساتھ اپنی پسند کی پروڈکٹ منتخب کریں۔*');
  const after=(await db.query("SELECT * FROM wa_chats WHERE phone='923001234567'")).rows[0];
  assert.deepEqual(after.state,{stage:'payment'});assert.equal(new Date(after.last_inbound).getTime(),lastInbound.getTime());
  await db.query("UPDATE wa_chats SET paused=TRUE WHERE phone='923001234567'");

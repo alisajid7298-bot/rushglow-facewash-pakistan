@@ -14,7 +14,7 @@ test('Packed notifications work for existing orders, use original WhatsApp custo
   await db.query("INSERT INTO wa_messages(meta_id,phone,direction,body) VALUES($1,$2,'inbound','Yes')",['order-'+id,phone]);
   await db.query("INSERT INTO orders(id,product_name,price,phone,status,wa_message_id) VALUES($1,'FaceWash','1200','03420000000','Pending',$2)",[id,'order-'+id]);
  }
- const first=await updates.markPacked(pool,'1');assert.equal(first.order_status,'Packed');assert.equal(first.notification_status,'sent');assert.equal(sends.length,1);assert.equal(sends[0].to,phone);assert.equal(sends[0].text.body,updates.packedText('1'));
+ const first=await updates.markPacked(pool,'1');assert.equal(first.order_status,'Packed');assert.equal(first.notification_status,'sent');assert.equal(sends.length,1);assert.equal(sends[0].to,phone);assert.equal(sends[0].text.body,'*'+updates.packedText('1')+'*');
  await updates.markPacked(pool,'1');assert.equal(sends.length,1);
  await db.query("UPDATE wa_messages SET status='delivered' WHERE meta_id='packed-1'");const listed=await updates.ordersForChat(pool,phone);assert.equal(listed.find(x=>String(x.id)==='1').packed_notification_status,'delivered');assert.equal((await updates.ordersForChat(pool,'923001111111')).length,0);
  const chat=(await db.query('SELECT * FROM wa_chats WHERE phone=$1',[phone])).rows[0];assert.equal(chat.paused,true);assert.deepEqual(chat.state,{stage:'human'});
