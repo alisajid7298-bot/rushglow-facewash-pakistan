@@ -35,6 +35,7 @@ module.exports = async (req, res) => {
   }
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   const { action, email, code } = req.body || {};
+  if (action === 'pin') return await require('../lib/admin-pin-login').login(req, res, { Pool, sign, clearCookie });
   if (!['send', 'verify'].includes(action)) return res.status(400).json({ error: 'Invalid action' });
   if (action === 'send' && email && !ADMIN_EMAILS.includes(String(email).trim().toLowerCase()))
     return res.status(403).json({ error: 'Only the website owner can receive login codes' });
