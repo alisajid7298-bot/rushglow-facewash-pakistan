@@ -56,6 +56,11 @@ module.exports=async(req,res)=>{
    const missing=['WA_VERIFY_TOKEN','WA_APP_SECRET','WA_ACCESS_TOKEN','WA_PHONE_NUMBER_ID'].filter(k=>!process.env[k]);
    return res.json({enabled,configured:missing.length===0,missing,callback:'https://rushglow.org/api/whatsapp',phoneId:process.env.WA_PHONE_NUMBER_ID||'',testMode:false});
   }
+  if(req.method==='GET'&&q.action==='funnel')return res.json(await require('../lib/whatsapp-funnel').summary(pool));
+  if(req.method==='GET'&&q.action==='funnel_chats'){
+   try{return res.json(await require('../lib/whatsapp-funnel').customers(pool,String(q.stage||''),String(q.cursor||'0')));}
+   catch(e){if(e.status)return res.status(e.status).json({error:e.message});throw e;}
+  }
   if(req.method==='GET'&&q.action==='representative_requests')return res.json((await pool.query('SELECT phone,name,representative_requested_at FROM wa_chats WHERE representative_requested_at IS NOT NULL ORDER BY representative_requested_at DESC LIMIT 100')).rows);
   if(req.method==='GET'&&q.action==='chats')return res.json((await pool.query(`SELECT c.phone,c.name,c.paused,c.last_inbound,c.updated_at,c.representative_requested_at,(SELECT body FROM wa_messages m WHERE m.phone=c.phone ORDER BY id DESC LIMIT 1) AS last_message FROM wa_chats c ORDER BY c.representative_requested_at DESC NULLS LAST,c.updated_at DESC LIMIT 100`)).rows);
   if(req.method==='GET'&&q.action==='order_updates'){
