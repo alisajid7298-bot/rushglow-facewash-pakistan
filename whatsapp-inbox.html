@@ -51,7 +51,7 @@ run($('sendCode'),()=>loginAction('send'));run($('verify'),()=>loginAction('veri
 async function refresh(){status=await api('status');$('connection').textContent=status.configured?(status.enabled?'API settings saved · Bot ON':'API settings saved · Bot OFF'):'API connection incomplete';$('setup').textContent=status.missing.length?'Missing server settings: '+status.missing.join(', '):'Use “Check API connection” to verify access. Incoming message ka test complete hone par hi live status confirm karein.';$('toggle').textContent=status.enabled?'Turn bot OFF':'Turn bot ON';$('toggle').disabled=!status.configured;chats=await api('chats');if(requestedPhone&&!current){current=chats.find(c=>c.phone===requestedPhone)||null;if(current)requestedPhone=null;}renderRepresentativeAlerts();renderChats();if(current){current=chats.find(c=>c.phone===current.phone)||null;if(current)await messages();}}
 let requestedPhone=new URLSearchParams(location.search).get('phone');
 if(!/^\d{8,15}$/.test(requestedPhone||''))requestedPhone=null;
-async function selectChat(chat){for(const player of $('messages').querySelectorAll('audio'))player.pause();$('messages').replaceChildren();current=chat;requestedPhone=null;$('chatOrders').hidden=true;$('chatOrders').replaceChildren();renderChats();try{await messages();if(matchMedia('(max-width:700px)').matches)$('customer').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){notice(e.message);}}
+async function selectChat(chat){for(const player of $('messages').querySelectorAll('audio,video'))player.pause();$('messages').replaceChildren();current=chat;requestedPhone=null;$('chatOrders').hidden=true;$('chatOrders').replaceChildren();renderChats();try{await messages();if(matchMedia('(max-width:700px)').matches)$('customer').scrollIntoView({behavior:'smooth',block:'start'});}catch(e){notice(e.message);}}
 function renderRepresentativeAlerts(){const box=$('representativeAlerts');box.replaceChildren();const pending=chats.filter(c=>c.representative_requested_at);box.hidden=!pending.length;document.title=(pending.length?'('+pending.length+') Representative requests · ':'')+'RushGlow WhatsApp Inbox';if(!pending.length)return;const title=document.createElement('h2');title.textContent='🔔 Representative requested ('+pending.length+')';box.append(title);for(const c of pending){const b=document.createElement('button');b.type='button';b.textContent=(c.name||'Customer')+' · +'+c.phone+' · '+new Date(c.representative_requested_at).toLocaleString()+' — Open chat';b.onclick=()=>selectChat(c);box.append(b);}}
 function renderChats(){const box=$('chats');box.replaceChildren();if(!chats.length){const p=document.createElement('p');p.textContent='Abhi koi API customer chat nahi aayi.';p.className='muted';box.append(p);}for(const c of chats){const b=document.createElement('button');b.className='chat'+(c.representative_requested_at?' needs-representative':'')+(current?.phone===c.phone?' selected':'');const name=document.createElement('strong');name.textContent=(c.representative_requested_at?'🔔 Representative requested · ':'')+(c.name||c.phone);const small=document.createElement('small');small.textContent='+'+c.phone+' · '+(c.last_message||'');b.append(name,small);b.onclick=()=>selectChat(c);box.append(b);}}
 function packedNotificationLabel(status,error){
@@ -95,7 +95,7 @@ function renderConversation(rows,log){
   let quote=el.querySelector('blockquote');
   if(m.message_type==='reaction'){if(!quote){quote=document.createElement('blockquote');el.insertBefore(quote,el.querySelector('.message-media'));}quote.textContent=m.reaction_to_body||'Original message is not available in this inbox.';}else if(quote)quote.remove();
   const media=el.querySelector('.message-media'),mediaKey=(m.message_type||'')+':'+(m.media_id||'');
-  // Keep the same audio element across background refreshes so playback does
+  // Keep the same audio/video element across background refreshes so playback does
   // not stop or return to the start every 12 seconds.
   if(media.dataset.key!==mediaKey){
    media.dataset.key=mediaKey;media.replaceChildren();
@@ -107,9 +107,17 @@ function renderConversation(rows,log){
      player.addEventListener('error',()=>{help.textContent='Audio could not be played. Meta may no longer have the file, this browser may not support its format, or it may exceed 4 MB. Check WhatsApp.';});
      player.addEventListener('playing',()=>{help.textContent='Playing voice message';});player.addEventListener('ended',()=>{help.textContent='Voice message finished';});
      media.append(player,help);
+    }else if(m.message_type==='video'){
+     const player=document.createElement('video');player.controls=true;player.preload='none';player.playsInline=true;player.src=url;player.setAttribute('aria-label','Play WhatsApp video');player.style.cssText='display:block;width:340px;max-width:100%;max-height:420px;margin-top:8px;background:#173c32;border-radius:8px';
+     const help=document.createElement('small');help.setAttribute('role','status');help.textContent='Press Play to watch. Inbox playback supports files up to 4 MB.';
+     player.addEventListener('error',()=>{help.textContent='Video could not be played. It may exceed 4 MB, be unavailable from Meta, or use an unsupported format. Check WhatsApp.';});
+     player.addEventListener('playing',()=>{help.textContent='Playing video';});player.addEventListener('ended',()=>{help.textContent='Video finished';});
+     const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open video';media.append(player,help,link);
     }else{
      const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent=m.direction==='app_owner'?'View WhatsApp image':'View payment image';media.append(link);
     }
+   }else if(m.message_type==='video'){
+    const help=document.createElement('small');help.textContent='Video file was not saved for this older message. Ask the sender to resend it.';media.append(help);
    }
   }
   el.querySelector('.message-meta').textContent=(m.direction==='inbound'?'Customer':m.direction==='app_owner'?'Representative (mobile WhatsApp)':m.direction==='human'?'Representative (control panel)':'Bot')+' · '+new Date(m.created_at).toLocaleString()+' · '+m.status+(m.error?' · '+m.error:'');
