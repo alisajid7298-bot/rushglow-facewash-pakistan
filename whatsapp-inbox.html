@@ -136,5 +136,5 @@ run($('pause'),async()=>{if(current){await api('pause',{phone:current.phone,paus
 run($('logout'),async()=>{await fetch('/api/admin-auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'logout'})});await auth();});
 $('replyForm').onsubmit=async e=>{e.preventDefault();if(!current||busy)return;busy=true;$('send').disabled=true;try{await api('reply',{phone:current.phone,text:$('reply').value});$('reply').value='';await refresh();notice('Reply process ho gaya. Message ke neeche delivery status dekhein.');}catch(e){notice(e.message);}finally{busy=false;$('send').disabled=!status?.configured;}};
 auth().catch(e=>notice(e.message));setInterval(()=>{if(loggedIn&&!busy&&!document.hidden)refresh().catch(e=>notice(e.message));},12000);setInterval(()=>{if(loggedIn)auth().catch(e=>notice(e.message));},300000);
-</script><script src="/whatsapp-reminder-settings.js?v=1"></script></body></html>
+</script><script src="/whatsapp-reminder-settings.js?v=2"></script></body></html>
 
