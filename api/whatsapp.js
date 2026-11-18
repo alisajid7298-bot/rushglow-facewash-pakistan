@@ -52,9 +52,10 @@ module.exports=async(req,res)=>{
    return res.json({ok:true});
   }
   if(req.method==='GET'&&q.action==='status'){
-   const enabled=(await pool.query('SELECT enabled FROM wa_settings WHERE id=1')).rows[0].enabled;
+   const settings=(await pool.query('SELECT enabled,reminder_enabled,reminder_last_check_at FROM wa_settings WHERE id=1')).rows[0];const enabled=settings.enabled;
+   const reminderErrors=Number((await pool.query('SELECT COUNT(*) AS count FROM wa_reminders WHERE last_schedule_error IS NOT NULL AND NOT consumed')).rows[0].count);
    const missing=['WA_VERIFY_TOKEN','WA_APP_SECRET','WA_ACCESS_TOKEN','WA_PHONE_NUMBER_ID'].filter(k=>!process.env[k]);
-   return res.json({enabled,configured:missing.length===0,missing,callback:'https://rushglow.org/api/whatsapp',phoneId:process.env.WA_PHONE_NUMBER_ID||'',testMode:false});
+   return res.json({enabled,reminderEnabled:settings.reminder_enabled,reminderErrors,reminderLastCheck:settings.reminder_last_check_at,configured:missing.length===0,missing,callback:'https://rushglow.org/api/whatsapp',phoneId:process.env.WA_PHONE_NUMBER_ID||'',testMode:false});
   }
   if(req.method==='GET'&&q.action==='funnel')return res.json(await require('../lib/whatsapp-funnel').summary(pool));
   if(req.method==='GET'&&q.action==='funnel_chats'){
@@ -76,6 +77,16 @@ module.exports=async(req,res)=>{
   // bodyParser is off to verify Meta's exact bytes. Admin requests are parsed here.
   const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>10000)return res.status(413).end();chunks.push(Buffer.from(chunk));}
   try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return res.status(400).end();}
+  if(q.action==='reminder_check'){
+   await require('../lib/whatsapp-reminder-queue').send('rushglow-order-followup',require('../lib/whatsapp-reminder').seal({probe:true}),{delaySeconds:3,retentionSeconds:300});
+   return res.json({ok:true});
+  }
+  if(q.action==='reminder_setting'){
+   if(typeof body.enabled!=='boolean')return res.status(400).json({error:'Invalid reminder setting'});
+   await pool.query('UPDATE wa_settings SET reminder_enabled=$1 WHERE id=1',[body.enabled]);
+   if(!body.enabled)await pool.query('UPDATE wa_reminders SET consumed=TRUE WHERE NOT consumed');
+   return res.json({ok:true,enabled:body.enabled});
+  }
   if(q.action==='enable'){
    if(typeof body.enabled!=='boolean')return res.status(400).end();
    if(body.enabled&&['WA_VERIFY_TOKEN','WA_APP_SECRET','WA_ACCESS_TOKEN','WA_PHONE_NUMBER_ID'].some(k=>!process.env[k]))return res.status(409).json({error:'Complete API settings before enabling replies'});

@@ -26,6 +26,7 @@ async function sendUpdateDigest(req,res){
 }
 
 module.exports=async(req,res)=>{
+ if(req.method==='POST'&&(req.headers['ce-type']||String(req.headers['content-type']||'').includes('cloudevents')))return await require('../lib/whatsapp-reminder-queue').handler(req,res);
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
  if(!isAdmin(req))return res.status(401).json({error:'Admin login required'});
