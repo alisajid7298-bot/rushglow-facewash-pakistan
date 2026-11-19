@@ -114,9 +114,16 @@ function renderConversation(rows,log){
      player.addEventListener('error',()=>{help.textContent='Video could not be played. It may exceed 4 MB, be unavailable from Meta, or use an unsupported format. Check WhatsApp.';});
      player.addEventListener('playing',()=>{help.textContent='Playing video';});player.addEventListener('ended',()=>{help.textContent='Video finished';});
      const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open video';media.append(player,help,link);
+    }else if(m.message_type==='sticker'){
+     const image=document.createElement('img');image.src=url;image.alt='WhatsApp sticker';image.loading='lazy';image.style.cssText='display:block;width:160px;max-width:100%;height:auto;margin-top:8px';
+     const help=document.createElement('small');help.setAttribute('role','status');
+     image.addEventListener('error',()=>{image.hidden=true;help.textContent='Sticker could not be loaded from Meta. Ask the sender to resend it.';});
+     media.append(image,help);
     }else{
      const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent=m.direction==='app_owner'?'View WhatsApp image':'View payment image';media.append(link);
     }
+   }else if(m.message_type==='sticker'){
+    const help=document.createElement('small');help.textContent='Sticker file was not saved for this older message. New stickers will appear here; ask the sender to resend this one.';media.append(help);
    }else if(m.message_type==='video'){
     const help=document.createElement('small');help.textContent='Video file was not saved for this older message. Ask the sender to resend it.';media.append(help);
    }
