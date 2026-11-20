@@ -75,8 +75,13 @@ module.exports=async(req,res)=>{
   if(req.method!=='POST')return res.status(405).end();
   const origin=req.headers.origin;if(origin!=='https://rushglow.org'&&origin!=='https://www.rushglow.org')return res.status(403).json({error:'Invalid request origin'});
   // bodyParser is off to verify Meta's exact bytes. Admin requests are parsed here.
-  const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>10000)return res.status(413).end();chunks.push(Buffer.from(chunk));}
+  const limit=q.action==='send_invoice'?3400000:10000;
+  const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>limit)return res.status(413).json({error:'Request too large'});chunks.push(Buffer.from(chunk));}
   try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return res.status(400).end();}
+  if(q.action==='send_invoice'){
+   try{return res.json(await require('../lib/whatsapp-invoice').send(pool,body));}
+   catch(e){if(e.status)return res.status(e.status).json({error:e.message});throw e;}
+  }
   if(q.action==='reminder_check'){
    await require('../lib/whatsapp-reminder-queue').send('rushglow-order-followup',require('../lib/whatsapp-reminder').seal({probe:true}),{delaySeconds:3,retentionSeconds:300});
    return res.json({ok:true});

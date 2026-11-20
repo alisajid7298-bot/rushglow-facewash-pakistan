@@ -68,6 +68,16 @@ function renderChatOrders(orders){
   const product=document.createElement('p');product.textContent=order.product_name+' · Rs. '+order.price;
   const label=document.createElement('p');label.className='muted';label.setAttribute('role','status');label.textContent=packedNotificationLabel(order.packed_notification_status,order.packed_notification_error);
   card.append(title,product,label);
+  const invoice=document.createElement('button');invoice.type='button';invoice.className='primary';invoice.textContent='Send Invoice (PDF)';
+  const invoiceFile=document.createElement('input');invoiceFile.type='file';invoiceFile.accept='application/pdf,.pdf';invoiceFile.hidden=true;
+  const invoicePhone=current?.phone;
+  invoice.onclick=()=>{if(!busy&&current?.phone===invoicePhone){invoiceFile.value='';invoiceFile.click();}};
+  invoiceFile.onchange=async()=>{const file=invoiceFile.files[0];if(!file||busy||current?.phone!==invoicePhone)return;if(file.size>2500000){notice('PDF must be 2.5 MB or smaller.');return;}
+   if(!confirm('Send '+file.name+' as invoice for Order #'+order.id+' to '+(current.name||'customer')+' (+'+invoicePhone+')?'))return;
+   busy=true;invoice.disabled=true;
+   try{const bytes=new Uint8Array(await file.arrayBuffer());let binary='';for(let i=0;i<bytes.length;i+=16384)binary+=String.fromCharCode(...bytes.subarray(i,i+16384));const result=await api('send_invoice',{id:String(order.id),phone:invoicePhone,pdf:btoa(binary)});notice((result.already?'Invoice already recorded. ':'Invoice: ')+packedNotificationLabel(result.status,result.error));await refresh();}catch(e){notice(e.message);}finally{busy=false;invoice.disabled=false;}
+  };
+  const invoiceHelp=document.createElement('p');invoiceHelp.className='muted';invoiceHelp.textContent='Use Print Order to save the existing invoice as PDF, then select it here.';card.append(invoice,invoiceFile,invoiceHelp);
   if(['Pending','Paid','Packed'].includes(order.status)&&!order.wa_packed_message_id){
    const button=document.createElement('button');button.type='button';button.className='primary';button.textContent=order.status==='Packed'?'Notify Customer — Order Packed':'Mark as Packed & Notify Customer';
    const preview=document.createElement('p');preview.className='muted';preview.textContent='Your order #'+order.id+' has been packed and is ready for dispatch. Thank you for shopping with RUSHGLOW!';card.append(preview,button);
@@ -114,6 +124,8 @@ function renderConversation(rows,log){
      player.addEventListener('error',()=>{help.textContent='Video could not be played. It may exceed 4 MB, be unavailable from Meta, or use an unsupported format. Check WhatsApp.';});
      player.addEventListener('playing',()=>{help.textContent='Playing video';});player.addEventListener('ended',()=>{help.textContent='Video finished';});
      const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open video';media.append(player,help,link);
+    }else if(m.message_type==='document'){
+     const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.textContent='Open invoice PDF';media.append(link);
     }else if(m.message_type==='sticker'){
      const image=document.createElement('img');image.src=url;image.alt='WhatsApp sticker';image.loading='lazy';image.style.cssText='display:block;width:160px;max-width:100%;height:auto;margin-top:8px';
      const help=document.createElement('small');help.setAttribute('role','status');
