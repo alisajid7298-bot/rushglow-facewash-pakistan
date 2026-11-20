@@ -90,7 +90,7 @@ function renderChatOrders(orders){
    complete.onclick=async()=>{if(busy||!confirm('Complete Order #'+order.id+' and notify the customer?'))return;busy=true;complete.disabled=true;try{const result=await api('complete_order',{id:String(order.id)});notice(result.notification_error||'Order completed. '+packedNotificationLabel(result.notification_status));await refresh();}catch(e){notice(e.message);}finally{busy=false;complete.disabled=false;}};
    card.append(complete);
   }
-  const mobile=document.createElement('p');mobile.className='muted';mobile.textContent='Owner WhatsApp: send “Order #'+order.id+' completed” in this customer chat to complete the order here too.';card.append(mobile);
+  const mobile=document.createElement('p');mobile.className='muted';mobile.textContent='Owner WhatsApp: send “Complete” if this is the only open order. For multiple orders, send “Order #'+order.id+' completed”. Automatic notification requires an open WhatsApp service window.';card.append(mobile);
   box.append(card);
  }
 }

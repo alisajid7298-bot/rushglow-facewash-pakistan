@@ -27,5 +27,13 @@ test('Completion from panel or verified owner WhatsApp syncs status and sends no
  assert.equal((await call(false,'https://rushglow.org')).code,401);assert.equal((await call(true,'https://evil.example')).code,403);assert.equal((await db.query('SELECT status FROM orders WHERE id=7')).rows[0].status,'Pending');assert.equal((await call(true,'https://rushglow.org')).data.order_status,'Delivery Complete');assert.equal(sends.length,3);
  assert.equal(complete.completionOrder('آپ کا آرڈر #۱۸ مکمل ہو گیا ہے۔'),'18');assert.equal(complete.completionOrder('Is Order #18 completed?'),null);
  await assert.rejects(complete.markComplete(pool,'999'),e=>e.status===404);
+ // A short owner command must not guess when more than one order is open.
+ const short={...event,id:'short-many',text:{body:'Complete'}};
+ await echo.record(pool,short,owner);assert.equal((await db.query('SELECT status FROM orders WHERE id=8')).rows[0].status,'Pending');assert.equal(sends.length,3);
+ await db.query("UPDATE orders SET status='Cancelled' WHERE id=4");
+ await echo.record(pool,{...short,id:'short-one',text:{body:'compalet'}},owner);assert.equal((await db.query('SELECT status FROM orders WHERE id=8')).rows[0].status,'Delivery Complete');assert.equal(sends.length,4);assert.equal(sends[3].text.body,'*'+complete.completeText('8')+'*');
+ await db.query("INSERT INTO wa_messages(meta_id,phone,direction,body) VALUES('order-9',$1,'inbound','COD')",[phone]);await db.query("INSERT INTO orders(id,product_name,price,status,wa_message_id) VALUES(9,'FaceWash','1200','Pending','order-9')");
+ await echo.record(pool,{...short,id:'short-one',text:{body:'compalet'}},owner);assert.equal((await db.query('SELECT status FROM orders WHERE id=9')).rows[0].status,'Pending');assert.equal(sends.length,4);
+ await db.query("UPDATE wa_chats SET last_inbound=NOW()-INTERVAL '25 hours' WHERE phone=$1",[phone]);await echo.record(pool,{...short,id:'short-closed'},owner);assert.equal((await db.query('SELECT status FROM orders WHERE id=9')).rows[0].status,'Delivery Complete');assert.equal(sends.length,4);
  }finally{global.fetch=previous;for(const k of keys){if(old[k]===undefined)delete process.env[k];else process.env[k]=old[k];}await pg.close();}
 });
