@@ -30,6 +30,10 @@ module.exports=async(req,res)=>{
  res.setHeader('Cache-Control','no-store');
  if(!['GET','POST'].includes(req.method))return res.status(405).json({error:'Method not allowed'});
  if(!isAdmin(req))return res.status(401).json({error:'Admin login required'});
+ if(req.method==='POST'&&String(req.body?.action||'').startsWith('push-')){
+  if(!['https://rushglow.org','https://www.rushglow.org'].includes(req.headers.origin))return res.status(403).json({error:'Invalid request origin'});
+  let pushPool;try{pushPool=new Pool({connectionString:process.env.POSTGRES_URL||process.env.DATABASE_URL||process.env.POSTGRES_URL_NON_POOLING});return await require('../lib/admin-push').handle(pushPool,req,res);}catch(e){console.error('Push setup failed',e.code||e.name);return res.status(500).json({error:'Push notifications unavailable'});}finally{if(pushPool)await pushPool.end().catch(()=>{});}
+ }
  if(req.method==='POST')return sendUpdateDigest(req,res);
  if(req.query?.updates==='1')return res.json(latestUpdates());
  let pool;

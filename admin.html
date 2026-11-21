@@ -240,7 +240,7 @@ async function checkNewOrders(){
    const banner=document.getElementById('newOrderBanner');banner.textContent=d.new_count+' new order(s) received. Latest order: #'+d.latest_id+'. Tap View / Refresh Orders to review.';banner.style.display='block';
    if(orderAlertEnabled){
     newOrderSound();
-    if('Notification' in window&&Notification.permission==='granted'){
+    if(!window.rgBackgroundPushEnabled&&'Notification' in window&&Notification.permission==='granted'){
      try{const reg=await navigator.serviceWorker.getRegistration('/admin.html');if(reg)await reg.showNotification('RushGlow: New order',{body:d.new_count+' new order(s) received. Open the control panel to review.',icon:'/api/admin-app-icon?size=192',tag:'rushglow-new-order'});else new Notification('RushGlow: New order',{body:'Open the control panel to review new orders.'})}catch{}
     }
    }
@@ -345,5 +345,5 @@ async function loadWhatsAppRepresentativeRequests(){
 }
 setInterval(()=>{if(!document.hidden)loadWhatsAppRepresentativeRequests()},12000);
 window.addEventListener('focus',loadWhatsAppRepresentativeRequests);
-</script><script src="/whatsapp-funnel-admin.js?v=1"></script><script src="/whatsapp-reminder-settings.js?v=2"></script></body></html>
+</script><script src="/whatsapp-funnel-admin.js?v=1"></script><script src="/whatsapp-reminder-settings.js?v=2"></script><script src="/admin-push.js?v=1"></script></body></html>
 

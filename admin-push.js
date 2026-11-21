@@ -1,0 +1,18 @@
+(()=>{
+ const panel=document.createElement('section');panel.className='panel';panel.innerHTML='<h2>Mobile Notifications</h2><p>Customer messages, new orders and representative requests — even when this panel is closed. No customer details are shown on your lock screen.</p><button type="button" id="rgPushToggle">Enable mobile notifications</button><button type="button" id="rgPushTest" disabled>Send test notification</button><p id="rgPushStatus" role="status">Checking this device…</p>';
+ const admin=document.getElementById('adminApp');admin.prepend(panel);
+ const toggle=panel.querySelector('#rgPushToggle'),test=panel.querySelector('#rgPushTest'),status=panel.querySelector('#rgPushStatus');let active=false,busy=false;
+ const supported=()=>('serviceWorker' in navigator)&&('PushManager' in window)&&('Notification' in window);
+ async function api(action,subscription){const r=await fetch('/api/admin-notifications',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...(subscription?{subscription:subscription.toJSON()}: {})})});const d=await r.json();if(!r.ok)throw Error(d.error||'Notification request failed');return d;}
+ async function registration(){const reg=await navigator.serviceWorker.register('/admin-sw.js',{scope:'/admin.html'});await navigator.serviceWorker.ready;return reg;}
+ function draw(on,message){active=on;toggle.textContent=on?'Turn mobile notifications OFF':'Enable mobile notifications';test.disabled=!on||busy;status.textContent=message;window.rgBackgroundPushEnabled=on;}
+ async function refresh(){if(busy||admin.style.display==='none')return;if(!supported()){toggle.disabled=true;draw(false,'This browser does not support background notifications. Use Chrome on Android.');return;}try{const reg=await registration(),sub=await reg.pushManager.getSubscription();const on=!!sub&&Notification.permission==='granted'&&(await api('push-status',sub)).enabled;draw(on,on?'ON — this device can receive background alerts.':'OFF — enable notifications on this device.');}catch{draw(false,'Could not check notification status. Log in and try again.');}}
+ toggle.onclick=async()=>{if(busy)return;busy=true;toggle.disabled=true;test.disabled=true;try{
+  if(!active&&Notification.permission!=='granted'&&await Notification.requestPermission()!=='granted')throw Error('Allow notifications in Android Chrome settings first.');
+  const reg=await registration();let sub=await reg.pushManager.getSubscription();
+  if(active){if(sub){await api('push-off',sub);await sub.unsubscribe();}draw(false,'OFF — background notifications stopped on this device.');}
+  else{const {publicKey}=await api('push-key');if(!sub){const padded=publicKey+'='.repeat((4-publicKey.length%4)%4);const bytes=Uint8Array.from(atob(padded.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});}await api('push-on',sub);draw(true,'ON — tap Send test notification to verify this phone.');}
+ }catch(e){status.textContent=e.message;}finally{busy=false;toggle.disabled=false;test.disabled=!active;}};
+ test.onclick=async()=>{if(busy)return;busy=true;test.disabled=true;try{const reg=await registration(),sub=await reg.pushManager.getSubscription();if(!sub)throw Error('Enable notifications first.');await api('push-test',sub);status.textContent='Test sent. Check your notification tray.';}catch(e){status.textContent=e.message;}finally{busy=false;test.disabled=!active;}};
+ new MutationObserver(refresh).observe(admin,{attributes:true,attributeFilter:['style']});window.addEventListener('focus',refresh);refresh();
+})();

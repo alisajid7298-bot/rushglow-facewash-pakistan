@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
-    "@vercel/queue": "^0.11.0"
+    "@vercel/queue": "^0.11.0",
+    "web-push": "^3.6.7"
   },
   "scripts": {
     "build": "node scripts/build-update-info.js",
