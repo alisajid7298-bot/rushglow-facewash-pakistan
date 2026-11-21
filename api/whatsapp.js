@@ -78,6 +78,10 @@ module.exports=async(req,res)=>{
   const limit=q.action==='send_invoice'?3400000:10000;
   const chunks=[];let size=0;for await(const chunk of req){size+=chunk.length;if(size>limit)return res.status(413).json({error:'Request too large'});chunks.push(Buffer.from(chunk));}
   try{body=JSON.parse(Buffer.concat(chunks).toString('utf8'));}catch{return res.status(400).end();}
+  if(q.action==='admin_push'){
+   if(!['push-key','push-on','push-off','push-status','push-test'].includes(body?.action))return res.status(400).json({error:'Invalid notification action'});
+   return await require('../lib/admin-push').handle(pool,{body},res);
+  }
   if(q.action==='send_invoice'){
    try{return res.json(await require('../lib/whatsapp-invoice').send(pool,body));}
    catch(e){if(e.status)return res.status(e.status).json({error:e.message});throw e;}
