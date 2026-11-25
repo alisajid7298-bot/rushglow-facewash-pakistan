@@ -19,3 +19,10 @@ test('Stock changes never renumber products and numeric checkout data is not a m
  assert.equal(bot.advance({}, {text:'1'},changed,'Ali').state.productId,undefined);assert.equal(bot.advance({}, {text:'2'},changed,'Ali').state.productId,'23');
  for(const stage of ['details','city','payment','proof']){const r=bot.advance({stage,productId:'24',unitPrice:1200},{text:'5'},products,'Ali');assert.equal(r.handoff,undefined);assert.equal(r.state.productId,'24');}
 });
+
+test('Product names and numbers recover stale checkout and confirm COD',()=>{
+ for(const stage of ['human','details','city','payment','proof','unknown'])for(const [i,id] of ['24','23','22','52'].entries())for(const value of [String(i+1),['Facewash','Skin Polish','Whitening Serum','Combo Kit'][i]]){
+ const r=bot.advance({stage,productId:'old'},{text:value},products,'Ali');assert.equal(r.state.productId,id);assert.equal(r.state.stage,'confirm');
+ const done=bot.advance(r.state,{text:'03000000000\nAddress: House 12 Main Road\nCity: Swabi'},products,'Ali');assert.equal(done.order,true);assert.equal(done.state.payment,'Cash on Delivery');
+ }
+});
