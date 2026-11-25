@@ -26,3 +26,8 @@ test('Product names and numbers recover stale checkout and confirm COD',()=>{
  const done=bot.advance(r.state,{text:'03000000000\nAddress: House 12 Main Road\nCity: Swabi'},products,'Ali');assert.equal(done.order,true);assert.equal(done.state.payment,'Cash on Delivery');
  }
 });
+
+test('Rural addresses accepted and usage questions rejected',()=>{
+ for(const address of ['Maha Hadi Khil Thandkoi Swabi','Balar Khelo Lar Marghoz','Thand Koi Swabi','Marghoz Swabi'])assert.equal(bot.validAddress(address),true);
+ for(const address of ['Da ba sanga istemalom, ok','OK Thanks','Swabi','Pakistan'])assert.equal(bot.validAddress(address),false);
+});
