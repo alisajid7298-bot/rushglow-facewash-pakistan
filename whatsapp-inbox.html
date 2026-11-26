@@ -32,6 +32,22 @@ code{overflow-wrap:anywhere}
  #reply{font-size:16px;min-height:88px}
  #send{width:100%}
  #customer{scroll-margin-top:12px}
+ .grid{grid-template-columns:minmax(0,35%) minmax(0,1fr);gap:6px;align-items:start}
+ .grid>.card{padding:7px;border-radius:8px}
+ .grid>.card:first-child{position:sticky;top:4px}
+ .grid h2{font-size:13px;line-height:1.3;margin:0 0 8px}
+ .grid button{font-size:12px;padding:6px;min-height:36px}
+ #chats{max-height:70vh;max-height:70dvh;overflow:auto}
+ .chat{padding:6px 4px;margin:4px 0}
+ .chat strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ .chat small{font-size:10px}
+ #messages{height:52vh;height:52dvh;min-height:180px;padding:6px 0;gap:6px}
+ .message{font-size:13px;padding:7px;max-width:96%}
+ .grid .row{gap:4px}
+ .grid .muted{font-size:11px}
+ #reply{min-height:64px;padding:6px}
+ #chatOrders{max-height:28dvh;overflow:auto}
+ #replyForm label{font-size:12px;margin:6px 0}
 }
 </style></head><body><header><h1>RushGlow · WhatsApp Inbox</h1><nav><a href="/whatsapp-review.html">Test templates</a> · <a href="/admin.html">Orders & products</a> · <a href="/">Shop</a></nav></header><main>
 <p id="notice" role="status" aria-live="polite"></p>
