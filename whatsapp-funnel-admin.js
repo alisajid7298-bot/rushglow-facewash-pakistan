@@ -22,6 +22,15 @@
   try{
    const d=await get('funnel'),c=d.counts;
    $('waFunnelMeta').textContent='Tracking shuru: '+new Date(d.started_at).toLocaleString('en-GB',{timeZone:'Asia/Karachi'})+' PKT · Har customer har step par sirf ek baar. Purani chats is count mein shamil nahi.';
+   let stats=$('waContactStats');
+   if(!stats){stats=document.createElement('div');stats.id='waContactStats';stats.style.cssText='display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:12px 0';$('waFunnelCounts').before(stats);}
+   stats.replaceChildren();
+   for(const [key,label] of [['today','Aaj ke contacts'],['last7','Last 7 days'],['last30','Last 30 days']]){
+    const tile=document.createElement('div');tile.style.cssText='padding:16px;border:1px solid #c7ddd1;border-radius:10px;background:#f2f8f5;color:#163b35';
+    const n=document.createElement('strong');n.style.cssText='display:block;font-size:28px;color:#08796b';n.textContent=d.contacts?.[key]??'—';
+    const t=document.createElement('span');t.textContent=label;tile.append(n,t);stats.append(tile);
+   }
+   const note=document.createElement('small');note.style.gridColumn='1 / -1';note.textContent='Unique inbound WhatsApp contacts · Pakistan time · Aaj samet 7 / 30 calendar days';stats.append(note);
    const cards=$('waFunnelCounts');cards.replaceChildren();
    for(const k of ['welcome','product','yes','details','order'])cards.append(metric(k,c[k],k==='welcome'?'WhatsApp ne accept kiya; read hona zaroori nahi.':(c.welcome?Math.round(c[k]/c.welcome*100):0)+'% welcome customers · Chats dekhein'));
    const waiting=$('waFunnelWaiting');waiting.replaceChildren();for(const k of ['stalled_welcome','stalled_product','stalled_yes','stalled_details'])waiting.append(metric(k,c[k],'Agla step abhi record nahi hua · Chats dekhein'));
